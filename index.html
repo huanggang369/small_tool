@@ -480,10 +480,6 @@
                         <button class="btn btn-secondary" onclick="collapseAll()">
                             ➖ 全部折叠
                         </button>
-                        
-                        <button class="btn btn-secondary" onclick="testCopy()" style="background: #17a2b8;">
-                            🧪 测试复制
-                        </button>
                     </div>
                     
                     <div class="panel-title">🎨 格式化结果</div>
@@ -498,7 +494,7 @@
             <div class="main-content">
                 <div class="left-panel">
                     <div class="panel-title">📊 表格文本输入</div>
-                    <textarea class="input-area" id="tableInput" placeholder="请粘贴表格文本，例如：&#10;+--------------+----------+-------------+&#10;|comments_count|crawl_time|creation_time|&#10;+--------------+----------+-------------+&#10;|0             |1690927234|1665525227   |&#10;|0             |1690927235|1688586509   |&#10;+--------------+----------+-------------+"></textarea>
+                    <textarea class="input-area" id="tableInput" placeholder="请粘贴表格文本，可以包含前后的其他文字，工具会自动提取表格内容。&#10;&#10;示例格式：&#10;+--------------+----------+-------------+&#10;|comments_count|crawl_time|creation_time|&#10;+--------------+----------+-------------+&#10;|0             |1690927234|1665525227   |&#10;|0             |1690927235|1688586509   |&#10;+--------------+----------+-------------+"></textarea>
                 </div>
                 
                 <div class="right-panel">
@@ -635,8 +631,9 @@
             }
 
             // 存储路径到值的映射
-            if (currentPath) {
-                pathValueMap.set(currentPath, data);
+            if (currentPath || isRoot) {
+                const mapKey = currentPath || '__ROOT__';
+                pathValueMap.set(mapKey, data);
             }
 
             if (data === null) {
@@ -811,8 +808,6 @@
 
         // 复制单个字段值
         function copyFieldValue(path) {
-            console.log('开始复制，路径:', path);
-            
             if (!currentJsonData) {
                 showNotification('⚠️ 没有可复制的数据', '#ffc107');
                 return;
@@ -821,6 +816,7 @@
             try {
                 let value;
                 
+
                 // 处理特殊路径
                 if (!path || path === '' || path === '__ROOT__') {
                     value = currentJsonData;
@@ -831,8 +827,6 @@
                     // 手动解析路径
                     value = getValueByPath(currentJsonData, path);
                 }
-
-                console.log('获取到的值:', value);
 
                 // 检查值是否存在
                 if (value === undefined) {
@@ -862,7 +856,7 @@
                     notificationMessage = `✅ ${typeof value}值已复制`;
                 }
 
-                console.log('准备复制内容:', copyContent.substring(0, 100));
+
 
                 // 使用最简单的复制方法
                 const textArea = document.createElement('textarea');
@@ -880,14 +874,11 @@
                 
                 if (successful) {
                     showNotification(notificationMessage);
-                    console.log('复制成功');
                 } else {
                     showNotification('❌ 复制失败', '#dc3545');
-                    console.log('复制失败');
                 }
             } catch (error) {
-                console.error('复制过程中发生错误:', error);
-                showNotification('❌ 复制失败: ' + error.message, '#dc3545');
+                showNotification('❌ 复制失败', '#dc3545');
             }
         }
 
@@ -899,25 +890,49 @@
             
             try {
                 let current = data;
-                const parts = pathStr.split(/[\.\[\]]+/).filter(part => part !== '');
                 
-                for (const part of parts) {
-                    if (/^\d+$/.test(part)) {
-                        // 数组索引
-                        current = current[parseInt(part)];
+                // 更精确的路径解析，处理数组索引和对象键
+                let i = 0;
+                while (i < pathStr.length) {
+                    if (pathStr[i] === '[') {
+                        // 处理数组索引 [0], [1] 等
+                        let j = i + 1;
+                        while (j < pathStr.length && pathStr[j] !== ']') {
+                            j++;
+                        }
+                        const index = parseInt(pathStr.substring(i + 1, j));
+                        current = current[index];
+                        i = j + 1;
+                        
+                        // 跳过后续的点号
+                        if (i < pathStr.length && pathStr[i] === '.') {
+                            i++;
+                        }
                     } else {
-                        // 对象键
-                        current = current[part];
+                        // 处理对象键
+                        let j = i;
+                        while (j < pathStr.length && pathStr[j] !== '.' && pathStr[j] !== '[') {
+                            j++;
+                        }
+                        const key = pathStr.substring(i, j);
+                        if (key) {
+                            current = current[key];
+                        }
+                        i = j;
+                        
+                        // 跳过点号
+                        if (i < pathStr.length && pathStr[i] === '.') {
+                            i++;
+                        }
                     }
                     
-                    if (current === undefined || current === null) {
+                    if (current === undefined) {
                         break;
                     }
                 }
                 
                 return current;
             } catch (error) {
-                console.error('路径解析错误:', error);
                 return undefined;
             }
         }
@@ -1093,6 +1108,10 @@
             }
 
             try {
+                // 先提取表格看看是否需要清理
+                const extractedTable = extractTable(input);
+                const isExtracted = extractedTable !== input.trim();
+                
                 const jsonArray = convertTableToJson(input, autoDetectNumbers, trimWhitespace);
                 
                 // 使用现有的JSON渲染功能
@@ -1100,7 +1119,11 @@
                 pathValueMap.clear();
                 output.innerHTML = renderJsonTree(jsonArray);
                 
-                messageArea.innerHTML = '<div class="success-message">✅ 表格转换成功！</div>';
+                let successMessage = '✅ 表格转换成功！';
+                if (isExtracted) {
+                    successMessage += ' (已自动提取表格内容)';
+                }
+                messageArea.innerHTML = `<div class="success-message">${successMessage}</div>`;
                 
             } catch (error) {
                 output.innerHTML = `<div class="error-message">❌ 表格解析错误: ${error.message}</div>`;
@@ -1108,9 +1131,54 @@
             }
         }
 
+        // 提取表格内容（去掉前后无关文字）
+        function extractTable(text) {
+            if (!text.trim()) return '';
+            
+            const lines = text.split('\n');
+            let firstTableLine = -1;
+            let lastTableLine = -1;
+            
+            // 查找第一个和最后一个表格分隔线
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // 识别表格分隔线（包含+和-的行）
+                if (line.includes('+') && line.includes('-') && line.length > 5) {
+                    if (firstTableLine === -1) {
+                        firstTableLine = i;
+                    }
+                    lastTableLine = i;
+                }
+            }
+            
+            // 如果没找到分隔线，尝试查找表格内容行
+            if (firstTableLine === -1) {
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    // 识别表格内容行（包含|的行，且|数量>=2）
+                    if (line.includes('|') && (line.match(/\|/g) || []).length >= 2) {
+                        if (firstTableLine === -1) {
+                            firstTableLine = i;
+                        }
+                        lastTableLine = i;
+                    }
+                }
+            }
+            
+            if (firstTableLine === -1) {
+                return text.trim(); // 如果没找到表格特征，返回原文
+            }
+            
+            // 提取表格内容，包含前后的分隔线
+            const extractedLines = lines.slice(firstTableLine, lastTableLine + 1);
+            return extractedLines.join('\n');
+        }
+
         // 表格转JSON的核心函数
         function convertTableToJson(tableText, autoDetectNumbers = true, trimWhitespace = true) {
-            const lines = tableText.split('\n').map(line => line.trim()).filter(line => line);
+            // 先提取表格内容
+            const extractedTable = extractTable(tableText);
+            const lines = extractedTable.split('\n').map(line => line.trim()).filter(line => line);
             
             if (lines.length < 3) {
                 throw new Error('表格格式不正确，至少需要表头和一行数据');
@@ -1156,7 +1224,6 @@
                 const values = parseTableRow(dataLine, trimWhitespace);
                 
                 if (values.length !== headers.length) {
-                    console.warn(`数据行列数不匹配: ${dataLine}`);
                     continue;
                 }
 
@@ -1234,16 +1301,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             // 添加事件委托处理复制按钮点击
             document.addEventListener('click', function(event) {
-                console.log('点击事件触发，目标元素:', event.target);
-                
                 if (event.target.classList.contains('copy-btn')) {
-                    console.log('检测到复制按钮点击');
                     event.preventDefault();
                     event.stopPropagation();
                     
                     const path = event.target.getAttribute('data-path');
-                    console.log('从按钮获取的路径:', path);
-                    
                     copyFieldValue(path);
                 }
             });
@@ -1254,11 +1316,7 @@
                 window.tableFormatTimer = setTimeout(parseTable, 800);
             });
 
-            // 添加测试复制功能
-            window.testCopy = function() {
-                console.log('测试复制功能');
-                copyFieldValue('name');
-            };
+
             
             // 添加示例数据
             const exampleJson = `{
@@ -1343,14 +1401,21 @@
             formatJson();
 
             // 为表格输入添加示例数据
-            const exampleTable = `+--------------+----------+-------------+----------+
+            const exampleTable = `这是一些前置文字，用于演示自动提取表格功能。
+
+查询结果如下:
+
++--------------+----------+-------------+----------+
 |comments_count|crawl_time|creation_time|user_id   |
 +--------------+----------+-------------+----------+
 |0             |1690927234|1665525227   |12345     |
 |5             |1690927235|1688586509   |67890     |
 |12            |1690927236|1689123456   |11111     |
 |3             |1690927237|1687654321   |22222     |
-+--------------+----------+-------------+----------+`;
++--------------+----------+-------------+----------+
+
+总共查询到4条记录，查询时间：0.002秒
+这是一些后置文字，会被自动忽略。`;
 
             document.getElementById('tableInput').value = exampleTable;
             
@@ -1362,11 +1427,7 @@
                 }
             }, 200);
             
-            // 确保数据已加载
-            setTimeout(() => {
-                console.log('当前JSON数据:', currentJsonData);
-                console.log('路径映射:', pathValueMap);
-            }, 100);
+
         });
     </script>
 </body>
