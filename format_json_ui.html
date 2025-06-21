@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 格式化工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-container {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            padding: 0;
+            display: flex;
+        }
+
+        .tab-button {
+            background: #e9ecef;
+            border: none;
+            padding: 15px 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #495057;
+            border-right: 1px solid #dee2e6;
+            transition: all 0.3s;
+        }
+
+        .tab-button:hover {
+            background: #dee2e6;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            margin-bottom: -2px;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        .main-content {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .left-panel, .right-panel {
+            width: 50%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        .left-panel {
+            border-right: 2px solid #ecf0f1;
+            background: #f8f9fa;
+        }
+
+        .right-panel {
+            background: white;
+        }
+
+        .panel-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .input-area {
+            flex: 1;
+            width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            background: white;
+            transition: border-color 0.3s;
+        }
+
+        .input-area:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .output-area {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            overflow: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .json-key {
+            color: #0066cc;
+            font-weight: 600;
+        }
+
+        .json-string {
+            color: #d14;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .json-number {
+            color: #099;
+        }
+
+        .json-boolean {
+            color: #0086b3;
+        }
+
+        .json-null {
+            color: #999;
+        }
+
+        .json-tree {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .json-item {
+            margin: 3px 0;
+            word-wrap: break-word;
+            word-break: break-word;
+            display: block;
+            position: relative;
+        }
+
+        .json-item.json-primitive {
+            display: block;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .json-expandable {
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 16px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            margin-right: 4px;
+        }
+
+        .json-expandable:hover {
+            background-color: #e8e8e8;
+            border-radius: 2px;
+        }
+
+        .json-expandable.collapsed::before {
+            content: '▶';
+        }
+
+        .json-expandable.expanded::before {
+            content: '▼';
+        }
+
+        .json-key-wrapper {
+            display: inline-block;
+        }
+
+        .json-key-name {
+            color: #0066cc;
+            font-weight: 600;
+            cursor: pointer;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .json-key-name:hover {
+            background-color: #e8f4fd;
+            border-radius: 2px;
+            padding: 1px 2px;
+        }
+
+        .json-type-info {
+            color: #888;
+            font-style: italic;
+            font-size: 12px;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
+        .json-count {
+            color: #888;
+            font-size: 12px;
+            margin-left: 4px;
+            white-space: nowrap;
+        }
+
+        .json-value {
+            margin-left: 4px;
+        }
+
+        .json-array-item {
+            margin: 3px 0;
+            word-wrap: break-word;
+            display: block;
+            position: relative;
+        }
+
+        .json-array-index {
+            color: #666;
+            font-weight: normal;
+            margin-right: 4px;
+            display: inline-block;
+            min-width: 30px;
+        }
+
+        .json-nested {
+            margin-left: 20px;
+            border-left: 1px dotted #ccc;
+            padding-left: 10px;
+            word-wrap: break-word;
+        }
+
+        .json-collapsed {
+            display: none;
+        }
+
+        .json-preview {
+            color: #888;
+            font-style: italic;
+            margin-left: 8px;
+        }
+
+        .json-object-brace, .json-array-bracket {
+            color: #666;
+            font-weight: bold;
+        }
+
+        .json-comma {
+            color: #666;
+            display: inline;
+        }
+
+        .controls {
+            flex-wrap: wrap;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .btn {
+            margin: 2px;
+            white-space: nowrap;
+        }
+
+        .copy-btn {
+            display: inline-block;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 3px;
+            color: #6c757d;
+            cursor: pointer;
+            font-size: 10px;
+            margin-left: 8px;
+            padding: 3px 6px;
+            transition: all 0.2s ease;
+            vertical-align: middle;
+            opacity: 0.6;
+            user-select: none;
+            line-height: 1;
+        }
+
+        .copy-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+            opacity: 1;
+            transform: scale(1.05);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .copy-btn:active {
+            transform: scale(0.95);
+            background: #dee2e6;
+        }
+
+        .json-value-wrapper {
+            display: inline-block;
+            position: relative;
+        }
+
+        .json-value-wrapper:hover .copy-btn {
+            opacity: 0.9;
+        }
+
+        .error-message {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .success-message {
+            color: #155724;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .copy-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .copy-notification.show {
+            opacity: 1;
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tab-container">
+            <button class="tab-button active" onclick="switchTab('json')">
+                📝 JSON 格式化
+            </button>
+            <button class="tab-button" onclick="switchTab('table')">
+                📊 表格转JSON
+            </button>
+        </div>
+
+        <!-- JSON格式化Tab -->
+        <div class="tab-content active" id="jsonTab">
+            <div class="main-content">
+                <div class="left-panel">
+                    <div class="panel-title">📝 JSON 输入</div>
+                    <textarea class="input-area" id="jsonInput" placeholder="请输入JSON字符串...可以包含前后的其他字符，工具会自动提取最外层的{}内容"></textarea>
+                </div>
+                
+                <div class="right-panel">
+                    <div class="controls">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="preserveEscape" checked>
+                            <label for="preserveEscape">保留转义字符</label>
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="formatJson()">
+                            🔄 格式化
+                        </button>
+                        
+                        <button class="btn btn-success" onclick="copyToClipboard()">
+                            📋 复制结果
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="compressJson()">
+                            📦 压缩为一行
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="expandAll()">
+                            ➕ 全部展开
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="collapseAll()">
+                            ➖ 全部折叠
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="testCopy()" style="background: #17a2b8;">
+                            🧪 测试复制
+                        </button>
+                    </div>
+                    
+                    <div class="panel-title">🎨 格式化结果</div>
+                    <div class="output-area" id="jsonOutput"></div>
+                    <div id="messageArea"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 表格转JSON Tab -->
+        <div class="tab-content" id="tableTab">
+            <div class="main-content">
+                <div class="left-panel">
+                    <div class="panel-title">📊 表格文本输入</div>
+                    <textarea class="input-area" id="tableInput" placeholder="请粘贴表格文本，例如：&#10;+--------------+----------+-------------+&#10;|comments_count|crawl_time|creation_time|&#10;+--------------+----------+-------------+&#10;|0             |1690927234|1665525227   |&#10;|0             |1690927235|1688586509   |&#10;+--------------+----------+-------------+"></textarea>
+                </div>
+                
+                <div class="right-panel">
+                    <div class="controls">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="autoDetectNumbers" checked>
+                            <label for="autoDetectNumbers">自动识别数字类型</label>
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="trimWhitespace" checked>
+                            <label for="trimWhitespace">去除空白字符</label>
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="parseTable()">
+                            🔄 转换为JSON
+                        </button>
+                        
+                        <button class="btn btn-success" onclick="copyTableResult()">
+                            📋 复制JSON
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="expandAll()">
+                            ➕ 全部展开
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="collapseAll()">
+                            ➖ 全部折叠
+                        </button>
+                    </div>
+                    
+                    <div class="panel-title">📋 JSON结果</div>
+                    <div class="output-area" id="tableOutput"></div>
+                    <div id="tableMessageArea"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="copy-notification" id="copyNotification">
+        ✅ 已复制到剪贴板
+    </div>
+
+    <script>
+        let currentFormattedJson = '';
+        let currentCompressedJson = '';
+
+        // 自动格式化功能
+        document.getElementById('jsonInput').addEventListener('input', function() {
+            clearTimeout(window.formatTimer);
+            window.formatTimer = setTimeout(formatJson, 500);
+        });
+
+        // 提取最外层的JSON对象
+        function extractJson(text) {
+            if (!text.trim()) return '';
+            
+            // 查找第一个 { 和最后一个 }
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            
+            if (firstBrace === -1 || lastBrace === -1 || firstBrace >= lastBrace) {
+                // 如果没有找到大括号，尝试查找方括号
+                const firstBracket = text.indexOf('[');
+                const lastBracket = text.lastIndexOf(']');
+                
+                if (firstBracket === -1 || lastBracket === -1 || firstBracket >= lastBracket) {
+                    return text.trim();
+                }
+                
+                return text.substring(firstBracket, lastBracket + 1);
+            }
+            
+            return text.substring(firstBrace, lastBrace + 1);
+        }
+
+        // 生成唯一ID
+        let nodeIdCounter = 0;
+        function generateNodeId() {
+            return 'json-node-' + (++nodeIdCounter);
+        }
+
+        // 获取数据类型描述
+        function getTypeInfo(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) return `array[${value.length}]`;
+            if (typeof value === 'object') return `object{${Object.keys(value).length}}`;
+            if (typeof value === 'string') return `string(${value.length})`;
+            return typeof value;
+        }
+
+        // 生成预览文本
+        function getPreview(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) {
+                if (value.length === 0) return '[]';
+                return `[${value.length} item${value.length > 1 ? 's' : ''}]`;
+            }
+            if (typeof value === 'object') {
+                const keys = Object.keys(value);
+                if (keys.length === 0) return '{}';
+                return `{${keys.length} key${keys.length > 1 ? 's' : ''}}`;
+            }
+            if (typeof value === 'string') {
+                return value.length > 50 ? `"${value.substring(0, 47)}..."` : `"${value}"`;
+            }
+            return String(value);
+        }
+
+        // 转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 渲染JSON树形结构
+        function renderJsonTree(data, key = null, isRoot = true, path = '') {
+            const nodeId = generateNodeId();
+            let html = '';
+
+            if (isRoot) {
+                html += '<div class="json-tree">';
+                // 清空路径映射
+                pathValueMap.clear();
+            }
+
+            // 构建当前路径
+            let currentPath = path;
+            if (key !== null && !key.startsWith('[')) {
+                currentPath = path ? `${path}.${key}` : key;
+            } else if (key !== null && key.startsWith('[')) {
+                currentPath = path + key;
+            }
+
+            // 存储路径到值的映射
+            if (currentPath) {
+                pathValueMap.set(currentPath, data);
+            }
+
+            if (data === null) {
+                html += `<div class="json-item">`;
+                if (key !== null && !key.startsWith('[')) {
+                    html += `<span class="json-key-name">"${escapeHtml(key)}"</span>: `;
+                }
+                html += `<span class="json-value-wrapper">`;
+                html += `<span class="json-null">null</span>`;
+                html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制值">📋</span>`;
+                html += `</span>`;
+                html += `</div>`;
+            } else if (Array.isArray(data)) {
+                html += `<div class="json-item">`;
+                if (key !== null && !key.startsWith('[')) {
+                    html += `<span class="json-key-name">"${escapeHtml(key)}"</span>: `;
+                }
+                
+                if (data.length === 0) {
+                    html += `<span class="json-value-wrapper">`;
+                    html += `<span class="json-array-bracket">[]</span> <span class="json-type-info">empty array</span>`;
+                    html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制数组">📋</span>`;
+                    html += `</span>`;
+                } else {
+                    html += `<span class="json-expandable expanded" onclick="toggleNode('${nodeId}')"></span>`;
+                    html += `<span class="json-value-wrapper">`;
+                    html += `<span class="json-array-bracket">[</span>`;
+                    html += `<span class="json-count">${data.length} item${data.length > 1 ? 's' : ''}</span>`;
+                    html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制整个数组">📋</span>`;
+                    html += `</span>`;
+                    html += `<div class="json-nested" id="${nodeId}">`;
+                    
+                    data.forEach((item, index) => {
+                        html += `<div class="json-array-item">`;
+                        html += `<span class="json-array-index">[${index}]</span>: `;
+                        const itemPath = currentPath ? `${currentPath}[${index}]` : `[${index}]`;
+                        const itemContent = renderJsonTree(item, null, false, itemPath);
+                        
+                        // 为数组项添加逗号处理
+                        if (index < data.length - 1) {
+                            const contentWithComma = itemContent.replace(/(<\/div>)$/, '<span class="json-comma">,</span>$1');
+                            html += contentWithComma;
+                        } else {
+                            html += itemContent;
+                        }
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                    html += `<span class="json-array-bracket">]</span>`;
+                }
+                html += `</div>`;
+            } else if (typeof data === 'object') {
+                html += `<div class="json-item">`;
+                if (key !== null && !key.startsWith('[')) {
+                    html += `<span class="json-key-name">"${escapeHtml(key)}"</span>: `;
+                }
+                
+                const keys = Object.keys(data);
+                if (keys.length === 0) {
+                    html += `<span class="json-value-wrapper">`;
+                    html += `<span class="json-object-brace">{}</span> <span class="json-type-info">empty object</span>`;
+                    html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制对象">📋</span>`;
+                    html += `</span>`;
+                } else {
+                    html += `<span class="json-expandable expanded" onclick="toggleNode('${nodeId}')"></span>`;
+                    html += `<span class="json-value-wrapper">`;
+                    html += `<span class="json-object-brace">{</span>`;
+                    html += `<span class="json-count">${keys.length} key${keys.length > 1 ? 's' : ''}</span>`;
+                    html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制整个对象">📋</span>`;
+                    html += `</span>`;
+                    html += `<div class="json-nested" id="${nodeId}">`;
+                    
+                    keys.forEach((objKey, index) => {
+                        const keyPath = currentPath ? `${currentPath}.${objKey}` : objKey;
+                        const keyContent = renderJsonTree(data[objKey], objKey, false, keyPath);
+                        
+                        // 去掉keyContent末尾的</div>，添加逗号后再加回</div>
+                        if (index < keys.length - 1) {
+                            const contentWithComma = keyContent.replace(/(<\/div>)$/, '<span class="json-comma">,</span>$1');
+                            html += contentWithComma;
+                        } else {
+                            html += keyContent;
+                        }
+                    });
+                    
+                    html += `</div>`;
+                    html += `<span class="json-object-brace">}</span>`;
+                }
+                html += `</div>`;
+            } else {
+                // 基本类型
+                html += `<div class="json-item json-primitive">`;
+                if (key !== null && !key.startsWith('[')) {
+                    html += `<span class="json-key-name">"${escapeHtml(key)}"</span>: `;
+                }
+                
+                html += `<span class="json-value-wrapper">`;
+                const typeClass = typeof data === 'string' ? 'json-string' : 
+                                typeof data === 'number' ? 'json-number' : 'json-boolean';
+                
+                const displayValue = typeof data === 'string' ? `"${escapeHtml(data)}"` : String(data);
+                html += `<span class="${typeClass}">${displayValue}</span>`;
+                html += `<span class="json-type-info">${getTypeInfo(data)}</span>`;
+                html += `<span class="copy-btn" data-path="${escapeHtml(currentPath)}" title="复制值">📋</span>`;
+                html += `</span>`;
+                html += `</div>`;
+            }
+
+            if (isRoot) {
+                html += '</div>';
+            }
+
+            return html;
+        }
+
+        // 切换节点展开/折叠状态
+        function toggleNode(nodeId) {
+            const node = document.getElementById(nodeId);
+            const expandable = event.target;
+            
+            if (node.style.display === 'none' || node.classList.contains('json-collapsed')) {
+                node.style.display = 'block';
+                node.classList.remove('json-collapsed');
+                expandable.classList.remove('collapsed');
+                expandable.classList.add('expanded');
+            } else {
+                node.style.display = 'none';
+                node.classList.add('json-collapsed');
+                expandable.classList.remove('expanded');
+                expandable.classList.add('collapsed');
+            }
+        }
+
+        // 全部展开
+        function expandAll() {
+            const expandables = document.querySelectorAll('.json-expandable');
+            const nested = document.querySelectorAll('.json-nested');
+            
+            expandables.forEach(exp => {
+                exp.classList.remove('collapsed');
+                exp.classList.add('expanded');
+            });
+            
+            nested.forEach(node => {
+                node.style.display = 'block';
+                node.classList.remove('json-collapsed');
+            });
+        }
+
+        // 全部折叠
+        function collapseAll() {
+            const expandables = document.querySelectorAll('.json-expandable');
+            const nested = document.querySelectorAll('.json-nested');
+            
+            expandables.forEach(exp => {
+                exp.classList.remove('expanded');
+                exp.classList.add('collapsed');
+            });
+            
+            nested.forEach(node => {
+                node.style.display = 'none';
+                node.classList.add('json-collapsed');
+            });
+        }
+
+        // 存储JSON数据的引用，用于复制单个字段
+        let currentJsonData = null;
+        
+        // 存储路径到值的映射，简化复制逻辑
+        let pathValueMap = new Map();
+
+        // 复制单个字段值
+        function copyFieldValue(path) {
+            console.log('开始复制，路径:', path);
+            
+            if (!currentJsonData) {
+                showNotification('⚠️ 没有可复制的数据', '#ffc107');
+                return;
+            }
+
+            try {
+                let value;
+                
+                // 处理特殊路径
+                if (!path || path === '' || path === '__ROOT__') {
+                    value = currentJsonData;
+                } else if (pathValueMap.has(path)) {
+                    // 从预存储的映射中获取值
+                    value = pathValueMap.get(path);
+                } else {
+                    // 手动解析路径
+                    value = getValueByPath(currentJsonData, path);
+                }
+
+                console.log('获取到的值:', value);
+
+                // 检查值是否存在
+                if (value === undefined) {
+                    showNotification('⚠️ 未找到指定字段', '#ffc107');
+                    return;
+                }
+
+                // 根据值类型决定复制内容
+                let copyContent;
+                let notificationMessage = '✅ 已复制';
+                
+                if (typeof value === 'string') {
+                    copyContent = value;
+                    notificationMessage = '✅ 字符串值已复制';
+                } else if (value === null) {
+                    copyContent = 'null';
+                    notificationMessage = '✅ null值已复制';
+                } else if (Array.isArray(value)) {
+                    copyContent = JSON.stringify(value, null, 2);
+                    notificationMessage = `✅ 数组已复制 (${value.length}项)`;
+                } else if (typeof value === 'object') {
+                    copyContent = JSON.stringify(value, null, 2);
+                    const keyCount = Object.keys(value).length;
+                    notificationMessage = `✅ 对象已复制 (${keyCount}键)`;
+                } else {
+                    copyContent = String(value);
+                    notificationMessage = `✅ ${typeof value}值已复制`;
+                }
+
+                console.log('准备复制内容:', copyContent.substring(0, 100));
+
+                // 使用最简单的复制方法
+                const textArea = document.createElement('textarea');
+                textArea.value = copyContent;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showNotification(notificationMessage);
+                    console.log('复制成功');
+                } else {
+                    showNotification('❌ 复制失败', '#dc3545');
+                    console.log('复制失败');
+                }
+            } catch (error) {
+                console.error('复制过程中发生错误:', error);
+                showNotification('❌ 复制失败: ' + error.message, '#dc3545');
+            }
+        }
+
+        // 简化的路径解析函数
+        function getValueByPath(data, pathStr) {
+            if (!pathStr || pathStr === '' || pathStr === '__ROOT__') {
+                return data;
+            }
+            
+            try {
+                let current = data;
+                const parts = pathStr.split(/[\.\[\]]+/).filter(part => part !== '');
+                
+                for (const part of parts) {
+                    if (/^\d+$/.test(part)) {
+                        // 数组索引
+                        current = current[parseInt(part)];
+                    } else {
+                        // 对象键
+                        current = current[part];
+                    }
+                    
+                    if (current === undefined || current === null) {
+                        break;
+                    }
+                }
+                
+                return current;
+            } catch (error) {
+                console.error('路径解析错误:', error);
+                return undefined;
+            }
+        }
+
+        // 格式化JSON
+        function formatJson() {
+            const input = document.getElementById('jsonInput').value;
+            const output = document.getElementById('jsonOutput');
+            const messageArea = document.getElementById('messageArea');
+            const preserveEscape = document.getElementById('preserveEscape').checked;
+            
+            messageArea.innerHTML = '';
+            
+            if (!input.trim()) {
+                output.innerHTML = '<div style="color: #6c757d; font-style: italic;">请输入JSON数据...</div>';
+                return;
+            }
+            
+            try {
+                // 提取JSON部分
+                const extractedJson = extractJson(input);
+                
+                if (!extractedJson) {
+                    throw new Error('未找到有效的JSON数据');
+                }
+                
+                // 解析JSON
+                const parsed = JSON.parse(extractedJson);
+                
+                // 保存原始数据用于字段复制
+                currentJsonData = parsed;
+                
+                // 格式化JSON
+                let formatted;
+                if (preserveEscape) {
+                    formatted = JSON.stringify(parsed, null, 2);
+                } else {
+                    formatted = JSON.stringify(parsed, null, 2).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                }
+                
+                currentFormattedJson = formatted;
+                currentCompressedJson = JSON.stringify(parsed);
+                
+                // 应用树形展示
+                output.innerHTML = renderJsonTree(parsed);
+                
+                // 显示成功消息
+                messageArea.innerHTML = '<div class="success-message">✅ JSON格式化成功！</div>';
+                
+            } catch (error) {
+                output.innerHTML = `<div class="error-message">❌ JSON解析错误: ${error.message}</div>`;
+                messageArea.innerHTML = `<div class="error-message">请检查输入的JSON格式是否正确</div>`;
+            }
+        }
+
+        // 复制到剪贴板
+        async function copyToClipboard() {
+            const content = currentFormattedJson;
+            
+            if (!content) {
+                showNotification('⚠️ 没有可复制的内容', '#ffc107');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(content);
+                showNotification('✅ 已复制到剪贴板');
+            } catch (err) {
+                // 降级方案
+                const textArea = document.createElement('textarea');
+                textArea.value = content;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showNotification('✅ 已复制到剪贴板');
+            }
+        }
+
+        // 压缩为一行
+        function compressJson() {
+            const input = document.getElementById('jsonInput').value;
+            const output = document.getElementById('jsonOutput');
+            const messageArea = document.getElementById('messageArea');
+            
+            if (!input.trim()) {
+                showNotification('⚠️ 请先输入JSON数据', '#ffc107');
+                return;
+            }
+            
+            try {
+                const extractedJson = extractJson(input);
+                const parsed = JSON.parse(extractedJson);
+                const compressed = JSON.stringify(parsed);
+                
+                // 保存原始数据用于字段复制
+                currentJsonData = parsed;
+                
+                currentFormattedJson = compressed;
+                currentCompressedJson = compressed;
+                
+                // 显示压缩后的文本（不使用树形结构）
+                const compressedHtml = `<div class="json-tree"><div class="json-item"><span class="json-value-wrapper"><span class="json-string">${escapeHtml(compressed)}</span><span class="json-type-info">compressed</span><span class="copy-btn" data-path="__ROOT__" title="复制压缩JSON">📋</span></span></div></div>`;
+                output.innerHTML = compressedHtml;
+                messageArea.innerHTML = '<div class="success-message">✅ JSON已压缩为一行！</div>';
+                
+            } catch (error) {
+                showNotification('❌ JSON格式错误，无法压缩', '#dc3545');
+            }
+        }
+
+        // 显示通知
+        function showNotification(message, color = '#28a745') {
+            const notification = document.getElementById('copyNotification');
+            notification.textContent = message;
+            notification.style.backgroundColor = color;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 2000);
+        }
+
+        // Tab切换功能
+        function switchTab(tabName) {
+            // 隐藏所有tab内容
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // 移除所有按钮的active状态
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // 显示选中的tab内容
+            const selectedTab = document.getElementById(tabName + 'Tab');
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+
+            // 激活选中的按钮
+            event.target.classList.add('active');
+
+            // 如果切换到表格tab且有输入内容但没有结果，自动解析
+            if (tabName === 'table') {
+                setTimeout(() => {
+                    const tableInput = document.getElementById('tableInput');
+                    const tableOutput = document.getElementById('tableOutput');
+                    
+                    if (tableInput.value.trim() && (!tableOutput.innerHTML || tableOutput.innerHTML.includes('请输入表格数据'))) {
+                        parseTable();
+                    }
+                }, 100);
+            }
+        }
+
+        // 解析表格文本
+        function parseTable() {
+            const input = document.getElementById('tableInput').value;
+            const output = document.getElementById('tableOutput');
+            const messageArea = document.getElementById('tableMessageArea');
+            const autoDetectNumbers = document.getElementById('autoDetectNumbers').checked;
+            const trimWhitespace = document.getElementById('trimWhitespace').checked;
+
+            messageArea.innerHTML = '';
+
+            if (!input.trim()) {
+                output.innerHTML = '<div style="color: #6c757d; font-style: italic;">请输入表格数据...</div>';
+                return;
+            }
+
+            try {
+                const jsonArray = convertTableToJson(input, autoDetectNumbers, trimWhitespace);
+                
+                // 使用现有的JSON渲染功能
+                currentJsonData = jsonArray;
+                pathValueMap.clear();
+                output.innerHTML = renderJsonTree(jsonArray);
+                
+                messageArea.innerHTML = '<div class="success-message">✅ 表格转换成功！</div>';
+                
+            } catch (error) {
+                output.innerHTML = `<div class="error-message">❌ 表格解析错误: ${error.message}</div>`;
+                messageArea.innerHTML = `<div class="error-message">请检查表格格式是否正确</div>`;
+            }
+        }
+
+        // 表格转JSON的核心函数
+        function convertTableToJson(tableText, autoDetectNumbers = true, trimWhitespace = true) {
+            const lines = tableText.split('\n').map(line => line.trim()).filter(line => line);
+            
+            if (lines.length < 3) {
+                throw new Error('表格格式不正确，至少需要表头和一行数据');
+            }
+
+            // 查找表头行（包含列名的行）
+            let headerLineIndex = -1;
+            let dataLines = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // 跳过分隔线（包含+和-的行）
+                if (line.includes('+') && line.includes('-')) {
+                    continue;
+                }
+                
+                // 查找数据行（包含|的行）
+                if (line.includes('|')) {
+                    if (headerLineIndex === -1) {
+                        headerLineIndex = i;
+                    } else {
+                        dataLines.push(line);
+                    }
+                }
+            }
+
+            if (headerLineIndex === -1) {
+                throw new Error('未找到表头行');
+            }
+
+            // 解析表头
+            const headerLine = lines[headerLineIndex];
+            const headers = parseTableRow(headerLine, trimWhitespace);
+
+            if (headers.length === 0) {
+                throw new Error('表头解析失败');
+            }
+
+            // 解析数据行
+            const jsonArray = [];
+            for (const dataLine of dataLines) {
+                const values = parseTableRow(dataLine, trimWhitespace);
+                
+                if (values.length !== headers.length) {
+                    console.warn(`数据行列数不匹配: ${dataLine}`);
+                    continue;
+                }
+
+                const rowObject = {};
+                for (let i = 0; i < headers.length; i++) {
+                    let value = values[i];
+                    
+                    // 自动检测数字类型
+                    if (autoDetectNumbers && /^\d+$/.test(value)) {
+                        value = parseInt(value);
+                    } else if (autoDetectNumbers && /^\d*\.\d+$/.test(value)) {
+                        value = parseFloat(value);
+                    }
+                    
+                    rowObject[headers[i]] = value;
+                }
+                
+                jsonArray.push(rowObject);
+            }
+
+            if (jsonArray.length === 0) {
+                throw new Error('未找到有效的数据行');
+            }
+
+            return jsonArray;
+        }
+
+        // 解析表格行
+        function parseTableRow(line, trimWhitespace = true) {
+            // 移除行首尾的|符号，然后按|分割
+            const cleanLine = line.replace(/^\||\|$/g, '');
+            let cells = cleanLine.split('|');
+            
+            if (trimWhitespace) {
+                cells = cells.map(cell => cell.trim());
+            }
+            
+            return cells;
+        }
+
+        // 复制表格结果
+        function copyTableResult() {
+            if (!currentJsonData) {
+                showNotification('⚠️ 没有可复制的内容', '#ffc107');
+                return;
+            }
+
+            try {
+                const jsonString = JSON.stringify(currentJsonData, null, 2);
+                
+                const textArea = document.createElement('textarea');
+                textArea.value = jsonString;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-9999px';
+                textArea.style.top = '-9999px';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showNotification('✅ JSON数组已复制到剪贴板');
+                } else {
+                    showNotification('❌ 复制失败', '#dc3545');
+                }
+            } catch (error) {
+                showNotification('❌ 复制失败: ' + error.message, '#dc3545');
+            }
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 添加事件委托处理复制按钮点击
+            document.addEventListener('click', function(event) {
+                console.log('点击事件触发，目标元素:', event.target);
+                
+                if (event.target.classList.contains('copy-btn')) {
+                    console.log('检测到复制按钮点击');
+                    event.preventDefault();
+                    event.stopPropagation();
+                    
+                    const path = event.target.getAttribute('data-path');
+                    console.log('从按钮获取的路径:', path);
+                    
+                    copyFieldValue(path);
+                }
+            });
+
+            // 为表格输入添加自动解析功能
+            document.getElementById('tableInput').addEventListener('input', function() {
+                clearTimeout(window.tableFormatTimer);
+                window.tableFormatTimer = setTimeout(parseTable, 800);
+            });
+
+            // 添加测试复制功能
+            window.testCopy = function() {
+                console.log('测试复制功能');
+                copyFieldValue('name');
+            };
+            
+            // 添加示例数据
+            const exampleJson = `{
+  "name": "JSON可视化工具",
+  "version": "2.0.0",
+  "description": "这是一个功能强大的JSON格式化和可视化工具，支持树形结构展示、折叠功能、数据类型显示等高级特性",
+  "features": [
+    "自动提取JSON",
+    "树形结构展示",
+    "可折叠节点",
+    "数据类型标注",
+    "一键复制",
+    "压缩功能",
+    "全部展开/折叠"
+  ],
+  "author": {
+    "name": "Assistant",
+    "email": "example@example.com",
+    "profile": {
+      "age": 25,
+      "skills": ["JavaScript", "HTML", "CSS", "JSON"],
+      "location": "Beijing",
+      "social": {
+        "github": "https://github.com/example",
+        "twitter": "@example",
+        "linkedin": "example-linkedin"
+      },
+      "preferences": {
+        "theme": "dark",
+        "language": "zh-CN",
+        "notifications": true
+      }
+    }
+  },
+  "statistics": {
+    "totalLines": 450,
+    "fileSize": "12.5KB",
+    "downloads": 1024,
+    "ratings": [5, 4, 5, 5, 4, 3, 5],
+    "userReviews": [
+      {
+        "user": "developer1",
+        "rating": 5,
+        "comment": "非常好用的工具！",
+        "date": "2024-01-20"
+      },
+      {
+        "user": "frontend_dev",
+        "rating": 4,
+        "comment": "界面很友好，功能丰富",
+        "date": "2024-01-19"
+      }
+    ]
+  },
+  "isActive": true,
+  "config": null,
+  "metadata": {
+    "created": "2024-01-15T10:30:00Z",
+    "updated": "2024-01-20T15:45:30Z",
+    "tags": ["json", "formatter", "visualizer", "web-tool"],
+    "comments": {
+      "development": "使用纯JavaScript开发",
+      "compatibility": "支持所有现代浏览器",
+      "performance": "轻量级，无外部依赖"
+    },
+    "changelog": [
+      {
+        "version": "2.0.0",
+        "changes": ["添加树形结构展示", "优化可读性", "增加折叠功能"],
+        "date": "2024-01-20"
+      },
+      {
+        "version": "1.0.0",
+        "changes": ["初始版本发布", "基本格式化功能"],
+        "date": "2024-01-15"
+      }
+    ]
+  }
+}`;
+            
+            document.getElementById('jsonInput').value = `前面的一些文本 ${exampleJson} 后面的一些文本`;
+            formatJson();
+
+            // 为表格输入添加示例数据
+            const exampleTable = `+--------------+----------+-------------+----------+
+|comments_count|crawl_time|creation_time|user_id   |
++--------------+----------+-------------+----------+
+|0             |1690927234|1665525227   |12345     |
+|5             |1690927235|1688586509   |67890     |
+|12            |1690927236|1689123456   |11111     |
+|3             |1690927237|1687654321   |22222     |
++--------------+----------+-------------+----------+`;
+
+            document.getElementById('tableInput').value = exampleTable;
+            
+            // 初始解析表格示例
+            setTimeout(() => {
+                const currentTab = document.querySelector('.tab-content.active').id;
+                if (currentTab === 'tableTab') {
+                    parseTable();
+                }
+            }, 200);
+            
+            // 确保数据已加载
+            setTimeout(() => {
+                console.log('当前JSON数据:', currentJsonData);
+                console.log('路径映射:', pathValueMap);
+            }, 100);
+        });
+    </script>
+</body>
+</html> 
