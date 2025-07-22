@@ -24,7 +24,7 @@ if [ ! -f "server.py" ]; then
 fi
 
 # 设置默认参数
-PORT=${1:-7777}
+PORT=${1:-7766}
 HOST=${2:-localhost}
 
 echo "📁 当前目录: $(pwd)"

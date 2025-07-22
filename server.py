@@ -32,7 +32,7 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         
         return super().do_GET()
 
-def run_server(port=7777, host='localhost'):
+def run_server(port=7766, host='localhost'):
     """运行HTTP服务器"""
     
     # 确保在正确的目录中运行
@@ -64,9 +64,9 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='JSON格式化工具HTTP服务器')
-    parser.add_argument('--port', '-p', type=int, default=7777, 
-                       help='服务器端口 (默认: 7777)')
-    parser.add_argument('--host', '-H', default='localhost', 
+    parser.add_argument('--port', '-p', type=int, default=7766, 
+                       help='服务器端口 (默认: 7766)')
+    parser.add_argument('--host', '-H', default='0.0.0.0', 
                        help='服务器主机 (默认: localhost)')
     parser.add_argument('--host-all', action='store_true',
                        help='允许所有主机访问 (使用 0.0.0.0)')
