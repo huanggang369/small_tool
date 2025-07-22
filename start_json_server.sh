@@ -1,0 +1,1 @@
+python3 server.py --port 7766 --host 0.0.0.0 
