@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare R2 对象列表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 100%;
+            margin: 0;
+            background: white;
+            min-height: 100vh;
+        }
+
+        .content {
+            padding: 15px;
+            max-width: none;
+        }
+
+        .config-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .config-section h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 4px;
+            font-size: 0.85em;
+        }
+
+        .form-group input {
+            padding: 8px 12px;
+            border: 1px solid #e1e5e9;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 0.75em;
+        }
+
+        .results-section {
+            margin-top: 20px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .results-count {
+            font-size: 1.2em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #363;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #363;
+        }
+
+        .objects-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .objects-table th {
+            background: #f8f9fa;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e1e5e9;
+        }
+
+        .objects-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .objects-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .size-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .date-badge {
+            background: #f3e5f5;
+            color: #7b1fa2;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }
+
+        .object-key {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        .copy-btn:active {
+            background: #004085;
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .download-btn {
+            background: #fd7e14;
+            color: white;
+            border: none;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 4px;
+        }
+
+        .download-btn:hover {
+            background: #e55a00;
+        }
+
+        .download-btn:active {
+            background: #cc4a00;
+        }
+
+        .download-btn.downloading {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .folder-item {
+            cursor: pointer;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+        }
+
+        .folder-item:hover {
+            background: #e9ecef;
+        }
+
+        .file-item {
+            background: white;
+        }
+
+        .item-icon {
+            margin-right: 6px;
+            font-size: 1em;
+        }
+
+        .folder-icon {
+            color: #007bff;
+        }
+
+        .file-icon {
+            color: #6c757d;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .breadcrumb-item {
+            cursor: pointer;
+            color: #007bff;
+            text-decoration: underline;
+        }
+
+        .breadcrumb-item:hover {
+            color: #0056b3;
+        }
+
+        .breadcrumb-separator {
+            color: #999;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        
+        <div class="content">
+            <div class="config-section">
+                <h2>
+                    <span>R2 配置</span>
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-secondary btn-small" id="saveConfigBtn">保存配置</button>
+                        <button type="button" class="btn btn-success btn-small" id="loadConfigBtn">加载配置</button>
+                    </div>
+                </h2>
+                <form id="r2Form">
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label for="endpoint_url">Endpoint URL *</label>
+                            <input type="url" id="endpoint_url" name="endpoint_url" required 
+                                   placeholder="https://your-account-id.r2.cloudflarestorage.com">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="aws_access_key_id">Access Key ID *</label>
+                            <input type="text" id="aws_access_key_id" name="aws_access_key_id" required 
+                                   placeholder="您的Access Key ID">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="aws_secret_access_key">Secret Access Key *</label>
+                            <input type="password" id="aws_secret_access_key" name="aws_secret_access_key" required 
+                                   placeholder="您的Secret Access Key">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bucket">Bucket 名称 *</label>
+                            <input type="text" id="bucket" name="bucket" required 
+                                   placeholder="存储桶名称">
+                        </div>
+                    </div>
+                    
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label for="prefix">Prefix (可选)</label>
+                            <input type="text" id="prefix" name="prefix" 
+                                   placeholder="对象前缀，例如: folder/">
+                        </div>
+                        
+                        <div class="form-group" style="display: flex; align-items: end;">
+                            <button type="submit" class="btn" id="submitBtn">
+                                列出对象
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div id="results" class="results-section" style="display: none;">
+                <div id="message"></div>
+                <div id="resultsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载时自动加载配置
+        window.addEventListener('load', async function() {
+            await loadConfig();
+        });
+
+        // 保存配置
+        document.getElementById('saveConfigBtn').addEventListener('click', async function() {
+            const form = document.getElementById('r2Form');
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/save_config', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('配置已保存', 'success');
+                } else {
+                    showMessage('保存配置失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('保存配置失败: ' + error.message, 'error');
+            }
+        });
+
+        // 加载配置
+        document.getElementById('loadConfigBtn').addEventListener('click', async function() {
+            await loadConfig();
+        });
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/get_config');
+                const config = await response.json();
+                
+                if (config.endpoint_url) {
+                    document.getElementById('endpoint_url').value = config.endpoint_url;
+                    document.getElementById('aws_access_key_id').value = config.aws_access_key_id;
+                    document.getElementById('aws_secret_access_key').value = config.aws_secret_access_key;
+                    document.getElementById('bucket').value = config.bucket;
+                    showMessage('配置已加载', 'success');
+                }
+            } catch (error) {
+                showMessage('加载配置失败: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const results = document.getElementById('results');
+            const messageDiv = document.getElementById('message');
+            
+            results.style.display = 'block';
+            messageDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                results.style.display = 'none';
+            }, 3000);
+        }
+
+        document.getElementById('r2Form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const results = document.getElementById('results');
+            const message = document.getElementById('message');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            // 显示加载状态
+            submitBtn.disabled = true;
+            submitBtn.textContent = '正在查询...';
+            results.style.display = 'block';
+            message.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在查询对象列表...</p></div>';
+            resultsContent.innerHTML = '';
+            
+            // 收集表单数据
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/list_objects', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.count > 0) {
+                        let messageText = `成功找到 ${data.count} 个对象`;
+                        if (data.is_truncated) {
+                            messageText += ` (总对象超过1000个，请注意可能不全，可输入更精确的路径前缀)`;
+                        }
+                        message.innerHTML = `<div class="success">${messageText}</div>`;
+                        const prefix = document.getElementById('prefix').value;
+                        displayObjects(data.objects, prefix);
+                    } else {
+                        message.innerHTML = `<div class="success">${data.message || '未找到任何对象'}</div>`;
+                        resultsContent.innerHTML = '';
+                    }
+                } else {
+                    message.innerHTML = `<div class="error">错误: ${data.error}</div>`;
+                    resultsContent.innerHTML = '';
+                }
+            } catch (error) {
+                message.innerHTML = `<div class="error">网络错误: ${error.message}</div>`;
+                resultsContent.innerHTML = '';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '列出对象';
+            }
+        });
+        
+        let currentPrefix = '';
+
+        function displayObjects(objects, prefix = '') {
+            const resultsContent = document.getElementById('resultsContent');
+            currentPrefix = prefix;
+            
+            // 生成面包屑导航
+            let breadcrumbHtml = '<div class="breadcrumb">';
+            if (prefix) {
+                const parts = prefix.split('/').filter(p => p);
+                let currentPath = '';
+                
+                breadcrumbHtml += '<span class="breadcrumb-item" onclick="navigateToFolder(\'\')">根目录</span>';
+                
+                parts.forEach((part, index) => {
+                    currentPath += part + '/';
+                    breadcrumbHtml += '<span class="breadcrumb-separator">/</span>';
+                    breadcrumbHtml += `<span class="breadcrumb-item" onclick="navigateToFolder('${currentPath}')">${part}</span>`;
+                });
+            } else {
+                breadcrumbHtml += '<span class="breadcrumb-item">根目录</span>';
+            }
+            breadcrumbHtml += '</div>';
+            
+            let html = `
+                <div class="results-header">
+                    <div class="results-count">对象列表 ${prefix ? `(${prefix})` : ''}</div>
+                </div>
+                ${breadcrumbHtml}
+                <table class="objects-table">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>大小</th>
+                            <th>最后修改时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            objects.forEach((obj, index) => {
+                const date = obj.last_modified ? new Date(obj.last_modified).toLocaleString('zh-CN') : '未知';
+                const rowClass = obj.type === 'folder' ? 'folder-item' : 'file-item';
+                const icon = obj.type === 'folder' ? '📁' : '📄';
+                const iconClass = obj.type === 'folder' ? 'folder-icon' : 'file-icon';
+                
+                html += `
+                    <tr class="${rowClass}" ${obj.type === 'folder' ? `onclick="navigateToFolder('${obj.key}')"` : ''}>
+                        <td>
+                            <div class="object-key">
+                                <span class="item-icon ${iconClass}">${icon}</span>
+                                <span>${obj.name}</span>
+                            </div>
+                        </td>
+                        <td><span class="size-badge">${obj.type === 'folder' ? '-' : obj.size_mb + ' MB'}</span></td>
+                        <td><span class="date-badge">${obj.type === 'folder' ? '-' : date}</span></td>
+                        <td>
+                            ${obj.type === 'file' ? `
+                                <button class="copy-btn" onclick="copyToClipboard('${obj.key}', this)" title="复制对象名称">
+                                    复制
+                                </button>
+                                <button class="download-btn" onclick="downloadFile('${obj.key}', this)" title="下载文件">
+                                    下载
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            resultsContent.innerHTML = html;
+        }
+
+        async function navigateToFolder(newPrefix) {
+            // 更新prefix输入框
+            document.getElementById('prefix').value = newPrefix;
+            
+            // 重新查询对象列表
+            const form = document.getElementById('r2Form');
+            const formData = new FormData(form);
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const results = document.getElementById('results');
+            const message = document.getElementById('message');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            // 显示加载状态
+            submitBtn.disabled = true;
+            submitBtn.textContent = '正在查询...';
+            results.style.display = 'block';
+            message.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在查询对象列表...</p></div>';
+            resultsContent.innerHTML = '';
+            
+            try {
+                const response = await fetch('/list_objects', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.count > 0) {
+                        let messageText = `成功找到 ${data.count} 个对象`;
+                        if (data.is_truncated) {
+                            messageText += ` (总对象超过1000个，请注意展示不全)`;
+                        }
+                        message.innerHTML = `<div class="success">${messageText}</div>`;
+                        displayObjects(data.objects, newPrefix);
+                    } else {
+                        message.innerHTML = `<div class="success">${data.message || '未找到任何对象'}</div>`;
+                        resultsContent.innerHTML = '';
+                    }
+                } else {
+                    message.innerHTML = `<div class="error">错误: ${data.error}</div>`;
+                    resultsContent.innerHTML = '';
+                }
+            } catch (error) {
+                message.innerHTML = `<div class="error">网络错误: ${error.message}</div>`;
+                resultsContent.innerHTML = '';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '列出对象';
+            }
+        }
+
+        function copyToClipboard(text, button) {
+            // 使用现代浏览器的 Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCopySuccess(button);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    fallbackCopyTextToClipboard(text, button);
+                });
+            } else {
+                // 降级方案
+                fallbackCopyTextToClipboard(text, button);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text, button) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showCopySuccess(button);
+                } else {
+                    alert('复制失败，请手动复制');
+                }
+            } catch (err) {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function showCopySuccess(button) {
+            const originalText = button.textContent;
+            button.textContent = '已复制';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        }
+
+        async function downloadFile(key, button) {
+            // 获取当前配置
+            const form = document.getElementById('r2Form');
+            const formData = new FormData(form);
+            formData.append('key', key);
+            
+            // 显示下载状态
+            const originalText = button.textContent;
+            button.textContent = '下载中...';
+            button.classList.add('downloading');
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/download_file', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    // 获取文件名
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = key.split('/').pop();
+                    if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+                        if (filenameMatch) {
+                            filename = filenameMatch[1];
+                        }
+                    }
+                    
+                    // 创建blob并下载
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    
+                    // 触发下载
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // 清理URL
+                    window.URL.revokeObjectURL(url);
+                    
+                    // 显示成功状态
+                    button.textContent = '已下载';
+                    button.style.background = '#28a745';
+                    
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.classList.remove('downloading');
+                        button.disabled = false;
+                        button.style.background = '';
+                    }, 2000);
+                    
+                } else {
+                    // 尝试解析错误信息
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('下载失败:', error);
+                alert('下载失败: ' + error.message);
+                
+                // 恢复按钮状态
+                button.textContent = originalText;
+                button.classList.remove('downloading');
+                button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html> 
