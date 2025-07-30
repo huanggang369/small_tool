@@ -1,11 +1,10 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
 from file_reader import FileReader
 import traceback
 from werkzeug.utils import secure_filename
 import uuid
-import mimetypes
 
 app = Flask(__name__)
 
@@ -111,53 +110,7 @@ def get_column_stats():
         }), 500
 
 
-@app.route('/api/download_file', methods=['POST'])
-def download_file():
-    """流式下载文件到浏览器默认下载路径"""
-    try:
-        data = request.get_json()
-        file_path = data.get('file_path')
-        
-        if not file_path:
-            return jsonify({'error': '文件路径不能为空'}), 400
-        
-        # 获取文件的绝对路径
-        if not os.path.isabs(file_path):
-            # 如果是相对路径，相对于当前工作目录
-            file_abs_path = os.path.abspath(file_path)
-        else:
-            file_abs_path = file_path
-        
-        # 确保路径是绝对路径
-        file_abs_path = os.path.abspath(file_abs_path)
-        
-        # 检查文件是否存在
-        if not os.path.exists(file_abs_path):
-            return jsonify({'error': '文件不存在'}), 400
-        
-        # 获取文件信息
-        file_name = os.path.basename(file_abs_path)
-        
-        # 获取MIME类型
-        mime_type, _ = mimetypes.guess_type(file_abs_path)
-        if mime_type is None:
-            mime_type = 'application/octet-stream'
-        
-        # 使用流式下载
-        return send_file(
-            file_abs_path,
-            as_attachment=True,
-            download_name=file_name,
-            mimetype=mime_type,
-            etag=True,
-            conditional=True
-        )
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+
 
 
 

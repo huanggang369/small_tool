@@ -484,6 +484,12 @@
                                         <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); openDirectory('${dir.path}')" title="打开目录">
                                             <i class="bi bi-arrow-right"></i>
                                         </button>
+                                        <button class="btn btn-outline-info btn-sm" onclick="event.stopPropagation(); copyFilePath('${dir.path}')" title="复制路径">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); generateScpCommand('${dir.path}', true)" title="生成scp命令">
+                                            <i class="bi bi-terminal"></i>
+                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -507,8 +513,11 @@
                                         <button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation(); loadSelectedFile('${file.path}')" title="加载文件">
                                             <i class="bi bi-play"></i>
                                         </button>
-                                        <button class="btn btn-outline-success btn-sm" onclick="event.stopPropagation(); downloadFile('${file.path}')" title="下载文件">
-                                            <i class="bi bi-download"></i>
+                                        <button class="btn btn-outline-info btn-sm" onclick="event.stopPropagation(); copyFilePath('${file.path}')" title="复制路径">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); generateScpCommand('${file.path}')" title="生成scp命令">
+                                            <i class="bi bi-terminal"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -607,49 +616,41 @@
             loadFile();
         }
 
-        // 下载文件
-        async function downloadFile(filePath) {
+        // 复制文件路径到剪贴板
+        async function copyFilePath(filePath) {
             try {
-                // 显示下载提示
-                showLoading(true);
-                
-                // 发送下载请求
-                const response = await fetch('/api/download_file', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ file_path: filePath })
-                });
-                
-                if (response.ok) {
-                    // 获取文件名
-                    const fileName = filePath.split('/').pop();
-                    
-                    // 创建blob并下载
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                    
-                    console.log('文件下载成功:', fileName);
-                } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || '下载失败');
-                }
-                
+                await navigator.clipboard.writeText(filePath);
+                showSuccess('路径已复制到剪贴板: ' + filePath);
             } catch (error) {
-                showError('下载文件失败: ' + error.message);
-            } finally {
-                // 隐藏加载提示
-                showLoading(false);
+                // 如果clipboard API不可用，使用传统方法
+                const textArea = document.createElement('textarea');
+                textArea.value = filePath;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showSuccess('路径已复制到剪贴板: ' + filePath);
             }
         }
+
+        // 生成scp命令
+        function generateScpCommand(filePath, isDirectory = false) {
+            const scpCommand = isDirectory 
+                ? `scp -r 10.208.60.246:${filePath} ./`
+                : `scp 10.208.60.246:${filePath} ./`;
+            
+            // 创建临时输入框来复制命令
+            const textArea = document.createElement('textarea');
+            textArea.value = scpCommand;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            showSuccess('scp命令已复制到剪贴板: ' + scpCommand);
+        }
+
+
 
 
 
@@ -835,7 +836,7 @@
             
             // 处理压缩信息（仅parquet文件）
             let compressionHtml = '';
-            if (info.file_type === 'parquet' && info.compression) {
+            if (info.file_type === 'parquet' && info.compression && info.compression.overall_compression) {
                 const comp = info.compression;
                 const compressionIcon = comp.has_compression ? 'bi-file-earmark-zip' : 'bi-file-earmark';
                 const compressionColor = comp.has_compression ? 'text-success' : 'text-muted';
@@ -853,12 +854,12 @@
             
             // 根据文件类型显示不同的列信息
             let columnsHtml = '';
-            if (info.file_type === 'parquet') {
+            if (info.file_type === 'parquet' && info.columns) {
                 columnsHtml = `
                     <div class="mt-2">
                         <strong>列名:</strong> ${info.columns.join(', ')}
                     </div>
-                    ${info.compression && info.compression.has_compression ? `
+                    ${info.compression && info.compression.has_compression && info.compression.column_compression ? `
                     <div class="mt-2">
                         <strong>压缩详情:</strong>
                         <div class="small text-muted">
@@ -888,13 +889,13 @@
                             <strong>文件大小:</strong> ${info.file_size_mb} MB
                         </div>
                         <div class="col-md-3">
-                            <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                            <strong>总行数:</strong> ${info.total_rows ? info.total_rows.toLocaleString() : 'N/A'}
                         </div>
                         <div class="col-md-3">
-                            <strong>列数:</strong> ${info.num_columns}
+                            <strong>列数:</strong> ${info.num_columns || 'N/A'}
                         </div>
                         <div class="col-md-3">
-                            <strong>Row Groups:</strong> ${info.row_groups}
+                            <strong>Row Groups:</strong> ${info.row_groups || 'N/A'}
                         </div>
                     </div>
                     ${compressionHtml}
@@ -908,7 +909,7 @@
                             <strong>文件大小:</strong> ${info.file_size_mb} MB
                         </div>
                         <div class="col-md-6">
-                            <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                            <strong>总行数:</strong> ${info.total_rows ? info.total_rows.toLocaleString() : 'N/A'}
                         </div>
                     </div>
                     ${columnsHtml}
@@ -1376,6 +1377,20 @@
             const errorAlert = document.getElementById('errorAlert');
             errorAlert.textContent = message;
             errorAlert.style.display = 'block';
+        }
+
+        // 显示成功信息
+        function showSuccess(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            errorAlert.className = 'alert alert-success';
+            errorAlert.textContent = message;
+            errorAlert.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                errorAlert.style.display = 'none';
+                errorAlert.className = 'alert alert-danger';
+            }, 3000);
         }
 
         // 隐藏错误信息

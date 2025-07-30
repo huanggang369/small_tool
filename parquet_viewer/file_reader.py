@@ -71,45 +71,50 @@ class FileReader:
         }
     
     def _get_json_info(self) -> Dict[str, Any]:
-        """获取JSON文件信息"""
+        """获取JSON文件信息 - 优化版本，只读取前几行解析schema"""
         try:
+            # 只读取前10行来解析JSON结构
             with open(self.file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+                lines = []
+                for i, line in enumerate(f):
+                    if i >= 10:  # 只读取前10行
+                        break
+                    lines.append(line.strip())
             
-            # 尝试解析为JSON
-            json_data = self._parse_json_file()
+            # 尝试解析前几行JSON
+            json_data = self._parse_json_lines(lines)
             
-            if isinstance(json_data, list):
-                total_rows = len(json_data)
-                if total_rows > 0:
-                    columns = list(json_data[0].keys()) if isinstance(json_data[0], dict) else []
-                else:
-                    columns = []
-            else:
-                total_rows = 1
-                columns = list(json_data.keys()) if isinstance(json_data, dict) else []
+            # 提取字段信息
+            columns = []
+            if json_data:
+                if isinstance(json_data, list) and len(json_data) > 0:
+                    # 多行JSON，取第一个对象的字段
+                    first_item = json_data[0]
+                    if isinstance(first_item, dict):
+                        columns = list(first_item.keys())
+                elif isinstance(json_data, dict):
+                    # 单行JSON对象
+                    columns = list(json_data.keys())
             
             return {
                 "file_type": "json",
                 "file_size_mb": round(os.path.getsize(self.file_path) / (1024 * 1024), 2),
-                "total_rows": total_rows,
                 "columns": columns
-                # 不计算num_columns、row_groups、compression等parquet特有的统计信息
+                # 不计算total_rows、num_columns、row_groups、compression等统计信息
             }
         except Exception as e:
             raise Exception(f"解析JSON文件失败: {str(e)}")
     
     def _get_text_info(self) -> Dict[str, Any]:
-        """获取文本文件信息"""
+        """获取文本文件信息 - 优化版本，不读取整个文件"""
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
+            # 只读取文件大小，不读取内容
+            file_size = os.path.getsize(self.file_path)
             
             return {
                 "file_type": "text",
-                "file_size_mb": round(os.path.getsize(self.file_path) / (1024 * 1024), 2),
-                "total_rows": len(lines)
-                # 不计算num_columns、row_groups、compression等parquet特有的统计信息
+                "file_size_mb": round(file_size / (1024 * 1024), 2)
+                # 不计算total_rows、num_columns、row_groups、compression等统计信息
             }
         except Exception as e:
             raise Exception(f"读取文本文件失败: {str(e)}")
@@ -169,15 +174,31 @@ class FileReader:
         return self._serialize_data(result)
     
     def _read_json_top_rows(self, num_rows: int) -> List[Dict[str, Any]]:
-        """读取JSON文件前N行"""
-        json_data = self._parse_json_file()
-        
-        if isinstance(json_data, list):
-            # 多行JSON文件
-            return json_data[:num_rows]
-        else:
-            # 单行JSON文件
-            return [json_data]
+        """读取JSON文件前N行 - 优化版本，只读取需要的行数"""
+        try:
+            # 只读取前num_rows行来解析JSON
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                lines = []
+                for i, line in enumerate(f):
+                    if i >= num_rows:  # 只读取前num_rows行
+                        break
+                    lines.append(line.strip())
+            
+            # 解析JSON数据
+            json_data = self._parse_json_lines(lines)
+            
+            if json_data:
+                if isinstance(json_data, list):
+                    # 多行JSON文件
+                    return json_data[:num_rows]
+                else:
+                    # 单行JSON文件
+                    return [json_data]
+            else:
+                return []
+                
+        except Exception as e:
+            raise Exception(f"读取JSON文件失败: {str(e)}")
     
     def _read_text_top_rows(self, num_rows: int) -> List[Dict[str, Any]]:
         """读取文本文件前N行"""
@@ -215,6 +236,32 @@ class FileReader:
             return result
         except json.JSONDecodeError:
             raise Exception("无法解析JSON文件格式")
+    
+    def _parse_json_lines(self, lines: List[str]) -> Any:
+        """解析前几行JSON来获取schema信息"""
+        if not lines:
+            return None
+        
+        # 尝试解析为多行JSON（每行一个JSON对象）
+        try:
+            result = []
+            for line in lines:
+                line = line.strip()
+                if line:
+                    result.append(json.loads(line))
+            return result
+        except json.JSONDecodeError:
+            pass
+        
+        # 尝试解析为单行JSON对象
+        try:
+            content = '\n'.join(lines)
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+        
+        # 如果都失败，返回None
+        return None
     
     def _serialize_data(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """处理数据，确保可以JSON序列化"""
