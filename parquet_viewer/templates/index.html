@@ -1273,7 +1273,54 @@
         function copyJsonToClipboard(event) {
             if (currentData) {
                 const jsonString = JSON.stringify(currentData, null, 2);
-                navigator.clipboard.writeText(jsonString).then(() => {
+                
+                // 尝试使用现代 Clipboard API
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(jsonString).then(() => {
+                        // 显示复制成功提示
+                        const button = event.target.closest('button');
+                        const originalText = button.innerHTML;
+                        button.innerHTML = '<i class="bi bi-check"></i> 已复制';
+                        button.classList.remove('btn-outline-info');
+                        button.classList.add('btn-success');
+                        
+                        setTimeout(() => {
+                            button.innerHTML = originalText;
+                            button.classList.remove('btn-success');
+                            button.classList.add('btn-outline-info');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('现代剪贴板API失败:', err);
+                        // 回退到传统方法
+                        fallbackCopyTextToClipboard(jsonString, event);
+                    });
+                } else {
+                    // 使用传统方法
+                    fallbackCopyTextToClipboard(jsonString, event);
+                }
+            } else {
+                alert('没有可复制的数据');
+            }
+        }
+
+        // 传统剪贴板复制方法（兼容性更好）
+        function fallbackCopyTextToClipboard(text, event) {
+            try {
+                // 创建临时文本区域
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                // 尝试复制
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
                     // 显示复制成功提示
                     const button = event.target.closest('button');
                     const originalText = button.innerHTML;
@@ -1286,12 +1333,65 @@
                         button.classList.remove('btn-success');
                         button.classList.add('btn-outline-info');
                     }, 2000);
-                }).catch(err => {
-                    console.error('复制失败:', err);
-                    alert('复制失败，请手动复制');
-                });
-            } else {
-                alert('没有可复制的数据');
+                } else {
+                    // 如果复制失败，显示数据供用户手动复制
+                    showCopyDialog(text);
+                }
+            } catch (err) {
+                console.error('传统剪贴板方法失败:', err);
+                // 显示数据供用户手动复制
+                showCopyDialog(text);
+            }
+        }
+
+        // 显示复制对话框
+        function showCopyDialog(text) {
+            // 创建模态对话框
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'copyModal';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">复制JSON数据</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>请手动复制以下JSON数据：</p>
+                            <textarea class="form-control" rows="15" readonly>${text}</textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            <button type="button" class="btn btn-primary" onclick="copyFromTextarea()">复制到剪贴板</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 显示模态框
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+            
+            // 模态框关闭后移除元素
+            modal.addEventListener('hidden.bs.modal', function() {
+                document.body.removeChild(modal);
+            });
+        }
+
+        // 从文本区域复制
+        function copyFromTextarea() {
+            const textarea = document.querySelector('#copyModal textarea');
+            if (textarea) {
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('已复制到剪贴板');
+                } catch (err) {
+                    alert('复制失败，请手动选择并复制文本');
+                }
             }
         }
 
