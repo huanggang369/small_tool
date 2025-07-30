@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parquet Viewer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        .container-fluid {
+            padding: 10px;
+            margin: 0;
+        }
+        .card {
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 10px;
+            background: transparent;
+        }
+        .card-header {
+            background: transparent;
+            color: inherit;
+            border-radius: 0;
+            padding: 5px 0;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 5px;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .table-container {
+            min-height: 200px;
+            max-height: none;
+            overflow-y: visible;
+        }
+        .json-viewer {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            min-height: 200px;
+            max-height: none;
+            overflow-y: visible;
+        }
+
+        /* JSON树状视图样式 */
+        .json-item {
+            position: relative;
+            margin: 2px 0;
+        }
+
+        .json-toggle {
+            cursor: pointer;
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            text-align: center;
+            margin-right: 4px;
+            user-select: none;
+        }
+
+        .json-toggle:hover {
+            background-color: #e9ecef;
+            border-radius: 2px;
+        }
+
+        .json-icon {
+            font-size: 10px;
+            color: #6c757d;
+        }
+
+        .json-children {
+            margin-left: 20px;
+            border-left: 1px solid #dee2e6;
+            padding-left: 10px;
+        }
+
+        .json-child {
+            margin: 2px 0;
+            padding: 1px 0;
+        }
+
+        .json-key {
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .json-index {
+            color: #6c757d;
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        .json-string {
+            color: #28a745;
+        }
+
+        .json-number {
+            color: #fd7e14;
+        }
+
+        .json-boolean {
+            color: #6f42c1;
+        }
+
+        .json-null {
+            color: #dc3545;
+        }
+
+        .json-undefined {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .json-bracket {
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .json-comma {
+            color: #6c757d;
+        }
+
+        .json-count {
+            color: #6c757d;
+            font-size: 11px;
+            font-style: italic;
+            margin-left: 4px;
+        }
+        .file-info {
+            background-color: #f8f9fa;
+            border-left: 3px solid #2196f3;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+        .alert {
+            border-radius: 8px;
+            border: none;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            color: #6c757d;
+            border-radius: 5px 5px 0 0;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #667eea;
+            color: white;
+        }
+        
+        /* 文件系统视图样式 */
+        .file-system-view {
+            max-height: 280px;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 2px 4px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            min-height: 24px;
+            margin: 0;
+        }
+        
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-icon {
+            margin-right: 6px;
+            font-size: 0.9em;
+            width: 14px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .file-info {
+            flex: 1;
+            min-width: 0;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            font-size: 0.85em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        .file-details {
+            font-size: 0.7em;
+            color: #6c757d;
+            margin: 0;
+            line-height: 1.1;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 2px;
+            margin-left: 4px;
+            flex-shrink: 0;
+        }
+        
+        .file-actions .btn {
+            padding: 1px 4px;
+            font-size: 0.7em;
+            line-height: 1;
+        }
+        
+        .breadcrumb-item a {
+            text-decoration: none;
+            color: #667eea;
+        }
+        
+        .breadcrumb-item a:hover {
+            color: #5a6fd8;
+        }
+        
+        .breadcrumb-item.active a {
+            color: #6c757d;
+            pointer-events: none;
+        }
+        
+        /* 紧凑的面包屑样式 */
+        .breadcrumb-sm {
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+        }
+        
+        .breadcrumb-sm .breadcrumb-item + .breadcrumb-item::before {
+            padding-left: 0.25rem;
+            padding-right: 0.25rem;
+        }
+
+        /* 数据展示区域自适应高度 */
+        #dataContainer {
+            min-height: 300px;
+            height: auto;
+        }
+
+        .tab-content {
+            min-height: 250px;
+        }
+
+        .tab-pane {
+            height: auto;
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card-body">
+                        <!-- 文件选择区域 -->
+                        <div class="row mb-2">
+                            <div class="col-md-8">
+                                <label for="filePath" class="form-label">文件路径</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="filePath" placeholder="输入文件路径或选择文件">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="browseFiles()">
+                                        <i class="bi bi-folder"></i> 浏览目录
+                                    </button>
+                                    <button class="btn btn-primary" type="button" onclick="loadFile()">
+                                        <i class="bi bi-search"></i> 加载
+                                    </button>
+                                </div>
+                                <!-- 文件选择对话框 -->
+                                <input type="file" id="fileInput" accept=".parquet,.json,.jsonl,.ndjson,.txt,.csv,.log" style="display: none;" onchange="handleFileSelect(event)">
+                                
+                                <!-- 路径导航栏 -->
+                                <div class="mt-2">
+                                    <nav aria-label="breadcrumb">
+                                        <ol class="breadcrumb breadcrumb-sm" id="pathBreadcrumb">
+                                            <li class="breadcrumb-item">
+                                                <a href="#" onclick="navigateToPath('/')">
+                                                    <i class="bi bi-house"></i> 根目录
+                                                </a>
+                                            </li>
+                                        </ol>
+                                    </nav>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="numRows" class="form-label">显示行数</label>
+                                <select class="form-select" id="numRows">
+                                    <option value="10">10 行</option>
+                                    <option value="50">50 行</option>
+                                    <option value="100">100 行</option>
+                                    <option value="500">500 行</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 文件系统浏览器 -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div>
+                                    <button class="btn btn-outline-info btn-sm me-1" onclick="refreshFileList()">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm me-1" onclick="goToParentDirectory()">
+                                        <i class="bi bi-arrow-up"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm me-1" onclick="goToHomeDirectory()">
+                                        <i class="bi bi-house"></i>
+                                    </button>
+                                </div>
+                                <span class="text-muted small fs-6" id="currentDirectory"></span>
+                            </div>
+                            
+                            <!-- 文件系统视图 -->
+                            <div class="card">
+                                <div class="card-header py-1">
+                                    <h6 class="mb-0 fs-6">
+                                        <i class="bi bi-folder2-open"></i> 文件浏览器
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div id="fileList" class="file-system-view"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 加载状态 -->
+                        <div id="loading" class="loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2">正在处理文件，请稍候...</p>
+                        </div>
+
+
+
+                        <!-- 错误信息 -->
+                        <div id="errorAlert" class="alert alert-danger" style="display: none;"></div>
+
+                        <!-- 文件信息 -->
+                        <div id="fileInfo" class="file-info" style="display: none;"></div>
+
+                        <!-- 数据展示区域 -->
+                        <div id="dataContainer" style="display: none;">
+                            <ul class="nav nav-tabs" id="dataTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="table-tab" data-bs-toggle="tab" data-bs-target="#table" type="button" role="tab">
+                                        <i class="bi bi-table"></i> 表格视图
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="json-tab" data-bs-toggle="tab" data-bs-target="#json" type="button" role="tab">
+                                        <i class="bi bi-code-slash"></i> JSON 视图
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">
+                                        <i class="bi bi-graph-up"></i> 列统计
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="dataTabsContent">
+                                <!-- 表格视图 -->
+                                <div class="tab-pane fade show active" id="table" role="tabpanel">
+                                    <div class="table-container">
+                                        <table class="table table-striped table-hover" id="dataTable">
+                                            <thead id="tableHeader"></thead>
+                                            <tbody id="tableBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- JSON 视图 -->
+                                <div class="tab-pane fade" id="json" role="tabpanel">
+                                    <div class="mb-2">
+                                        <button class="btn btn-outline-primary btn-sm me-2" onclick="expandAllJson()">
+                                            <i class="bi bi-chevron-down"></i> 全部展开
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="collapseAllJson()">
+                                            <i class="bi bi-chevron-right"></i> 全部折叠
+                                        </button>
+                                        <button class="btn btn-outline-info btn-sm" onclick="copyJsonToClipboard()">
+                                            <i class="bi bi-clipboard"></i> 复制JSON
+                                        </button>
+                                    </div>
+                                    <div class="json-viewer" id="jsonViewer"></div>
+                                </div>
+
+                                <!-- 列统计 -->
+                                <div class="tab-pane fade" id="stats" role="tabpanel">
+                                    <div id="columnStats"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentFile = null;
+        let currentData = null;
+        let currentFileInfo = null;
+        let currentDirectory = null;
+
+        // 页面加载时获取文件列表
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshFileList();
+        });
+
+        // 刷新文件列表
+        async function refreshFileList(directory = null) {
+            try {
+                const url = directory ? `/api/list_files?directory=${encodeURIComponent(directory)}` : '/api/list_files';
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const fileList = document.getElementById('fileList');
+                    const currentDirElement = document.getElementById('currentDirectory');
+                    
+                    // 更新当前目录显示
+                    currentDirectory = result.data.current_directory;
+                    currentDirElement.textContent = `当前目录: ${currentDirectory}`;
+                    
+                    // 更新路径导航栏
+                    updatePathBreadcrumb(currentDirectory);
+                    
+                    const files = result.data.files || [];
+                    const directories = result.data.directories || [];
+                    
+                    if (files.length === 0 && directories.length === 0) {
+                        fileList.innerHTML = '<div class="alert alert-info m-3">当前目录为空</div>';
+                    } else {
+                        let html = '';
+                        
+                        // 先显示目录（已按名称排序）
+                        directories.forEach(dir => {
+                            html += `
+                                <div class="file-item" onclick="openDirectory('${dir.path}')">
+                                    <div class="file-icon text-warning">
+                                        <i class="bi bi-folder"></i>
+                                    </div>
+                                    <div class="file-info">
+                                        <div class="file-name">${dir.name}</div>
+                                        <div class="file-details">目录</div>
+                                    </div>
+                                    <div class="file-actions">
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); openDirectory('${dir.path}')" title="打开目录">
+                                            <i class="bi bi-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        // 再显示文件（已按名称排序）
+                        files.forEach(file => {
+                            html += `
+                                <div class="file-item" onclick="selectFile('${file.path}')">
+                                    <div class="file-icon text-primary">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                    </div>
+                                    <div class="file-info">
+                                        <div class="file-name">${file.name}</div>
+                                        <div class="file-details">${file.size_mb} MB</div>
+                                    </div>
+                                    <div class="file-actions">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); selectFile('${file.path}')" title="选择文件">
+                                            <i class="bi bi-check"></i>
+                                        </button>
+                                        <button class="btn btn-outline-warning btn-sm" onclick="event.stopPropagation(); loadSelectedFile('${file.path}')" title="加载文件">
+                                            <i class="bi bi-play"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success btn-sm" onclick="event.stopPropagation(); downloadFile('${file.path}')" title="下载文件">
+                                            <i class="bi bi-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        fileList.innerHTML = html;
+                    }
+                } else {
+                    showError('获取文件列表失败: ' + result.error);
+                }
+            } catch (error) {
+                showError('获取文件列表失败: ' + error.message);
+            }
+        }
+
+        // 更新路径导航栏
+        function updatePathBreadcrumb(path) {
+            const breadcrumb = document.getElementById('pathBreadcrumb');
+            const pathParts = path.split('/').filter(part => part.length > 0);
+            
+            let html = '<li class="breadcrumb-item"><a href="#" onclick="navigateToPath(\'/\')"><i class="bi bi-house"></i> 根目录</a></li>';
+            
+            let currentPath = '';
+            pathParts.forEach((part, index) => {
+                currentPath += '/' + part;
+                if (index === pathParts.length - 1) {
+                    // 当前目录
+                    html += `<li class="breadcrumb-item active"><a href="#">${part}</a></li>`;
+                } else {
+                    // 可点击的路径
+                    html += `<li class="breadcrumb-item"><a href="#" onclick="navigateToPath('${currentPath}')">${part}</a></li>`;
+                }
+            });
+            
+            breadcrumb.innerHTML = html;
+        }
+
+        // 导航到指定路径
+        function navigateToPath(path) {
+            if (path === '/') {
+                refreshFileList();
+            } else {
+                refreshFileList(path);
+            }
+        }
+
+        // 返回主目录
+        function goToHomeDirectory() {
+            refreshFileList();
+        }
+
+        // 打开目录
+        function openDirectory(directoryPath) {
+            refreshFileList(directoryPath);
+        }
+
+        // 返回上级目录
+        function goToParentDirectory() {
+            if (currentDirectory) {
+                const parentDir = currentDirectory.split('/').slice(0, -1).join('/');
+                if (parentDir) {
+                    refreshFileList(parentDir);
+                } else {
+                    refreshFileList();
+                }
+            }
+        }
+
+        // 选择文件（只设置路径，不自动加载）
+        function selectFile(filePath) {
+            document.getElementById('filePath').value = filePath;
+            // 不自动加载文件，用户需要点击加载按钮
+        }
+
+        // 加载选中的文件
+        function loadSelectedFile(filePath) {
+            document.getElementById('filePath').value = filePath;
+            loadFile();
+        }
+
+        // 下载文件
+        async function downloadFile(filePath) {
+            try {
+                // 显示下载提示
+                showLoading(true);
+                
+                // 发送下载请求
+                const response = await fetch('/api/download_file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ file_path: filePath })
+                });
+                
+                if (response.ok) {
+                    // 获取文件名
+                    const fileName = filePath.split('/').pop();
+                    
+                    // 创建blob并下载
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                    
+                    console.log('文件下载成功:', fileName);
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '下载失败');
+                }
+                
+            } catch (error) {
+                showError('下载文件失败: ' + error.message);
+            } finally {
+                // 隐藏加载提示
+                showLoading(false);
+            }
+        }
+
+
+
+        // 浏览文件（类似ls命令，只列出目录内容）
+        function browseFiles() {
+            const filePath = document.getElementById('filePath').value.trim();
+            
+            if (filePath) {
+                // 如果输入了路径，尝试浏览该路径
+                if (filePath.includes('.')) {
+                    // 如果是文件路径，导航到文件所在目录
+                    const directory = filePath.substring(0, filePath.lastIndexOf('/'));
+                    refreshFileList(directory);
+                } else {
+                    // 如果是目录路径，直接浏览该目录
+                    refreshFileList(filePath);
+                }
+            } else {
+                // 如果没有输入路径，刷新当前目录
+                refreshFileList();
+            }
+        }
+
+        // 处理文件选择
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                // 检查文件类型
+                const allowedExtensions = ['.parquet', '.json', '.jsonl', '.ndjson', '.txt', '.csv', '.log'];
+                const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!allowedExtensions.includes(fileExtension)) {
+                    showError('请选择支持的文件类型: ' + allowedExtensions.join(', '));
+                    return;
+                }
+                
+                // 显示文件路径
+                document.getElementById('filePath').value = file.name;
+                
+                // 自动加载文件
+                loadFileFromFile(file);
+            }
+        }
+
+        // 从文件对象加载文件
+        async function loadFileFromFile(file) {
+            showLoading(true);
+            hideError();
+
+            try {
+                // 创建 FormData 对象
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // 上传文件
+                const uploadResponse = await fetch('/api/upload_file', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadResult = await uploadResponse.json();
+                
+                if (!uploadResult.success) {
+                    throw new Error(uploadResult.error);
+                }
+
+                // 使用上传后的文件路径
+                const filePath = uploadResult.data.file_path;
+                document.getElementById('filePath').value = filePath;
+                
+                // 加载文件
+                await loadFile();
+
+            } catch (error) {
+                showError('文件上传失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 加载文件
+        async function loadFile() {
+            const filePath = document.getElementById('filePath').value.trim();
+            if (!filePath) {
+                showError('请输入文件路径');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                // 获取文件信息
+                const infoResponse = await fetch('/api/file_info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ file_path: filePath })
+                });
+
+                const infoResult = await infoResponse.json();
+                
+                if (!infoResult.success) {
+                    throw new Error(infoResult.error);
+                }
+
+                currentFile = filePath;
+                currentFileInfo = infoResult.data;
+                displayFileInfo(infoResult.data);
+
+                // 根据文件类型显示不同的视图
+                updateViewForFileType(infoResult.data.file_type);
+
+                // 读取数据
+                await loadData();
+
+            } catch (error) {
+                showError('加载文件失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 加载数据
+        async function loadData() {
+            const numRows = parseInt(document.getElementById('numRows').value);
+            
+            try {
+                const response = await fetch('/api/read_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        file_path: currentFile,
+                        num_rows: numRows,
+                        start_row: 0
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error);
+                }
+
+                currentData = result.data;
+                displayData(result.data);
+                
+                // 根据文件类型决定是否加载列统计
+                if (currentFileInfo && currentFileInfo.file_type === 'parquet') {
+                    await loadColumnStats();
+                }
+
+            } catch (error) {
+                showError('读取数据失败: ' + error.message);
+            }
+        }
+
+        // 显示文件信息
+        function displayFileInfo(info) {
+            const fileInfo = document.getElementById('fileInfo');
+            
+            // 根据文件类型显示不同的信息
+            let fileTypeIcon = 'bi-file-earmark';
+            let fileTypeText = '未知文件';
+            
+            switch(info.file_type) {
+                case 'parquet':
+                    fileTypeIcon = 'bi-file-earmark-arrow-down';
+                    fileTypeText = 'Parquet文件';
+                    break;
+                case 'json':
+                    fileTypeIcon = 'bi-file-earmark-code';
+                    fileTypeText = 'JSON文件';
+                    break;
+                case 'text':
+                    fileTypeIcon = 'bi-file-earmark-text';
+                    fileTypeText = '文本文件';
+                    break;
+            }
+            
+            // 处理压缩信息（仅parquet文件）
+            let compressionHtml = '';
+            if (info.file_type === 'parquet' && info.compression) {
+                const comp = info.compression;
+                const compressionIcon = comp.has_compression ? 'bi-file-earmark-zip' : 'bi-file-earmark';
+                const compressionColor = comp.has_compression ? 'text-success' : 'text-muted';
+                
+                compressionHtml = `
+                    <div class="col-md-3">
+                        <strong>压缩格式:</strong> 
+                        <span class="${compressionColor}">
+                            <i class="bi ${compressionIcon}"></i>
+                            ${comp.overall_compression}
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // 根据文件类型显示不同的列信息
+            let columnsHtml = '';
+            if (info.file_type === 'parquet') {
+                columnsHtml = `
+                    <div class="mt-2">
+                        <strong>列名:</strong> ${info.columns.join(', ')}
+                    </div>
+                    ${info.compression && info.compression.has_compression ? `
+                    <div class="mt-2">
+                        <strong>压缩详情:</strong>
+                        <div class="small text-muted">
+                            ${Object.entries(info.compression.column_compression).map(([col, comp]) => 
+                                `${col}: ${comp}`
+                            ).join(', ')}
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            } else if (info.file_type === 'json') {
+                columnsHtml = `
+                    <div class="mt-2">
+                        <strong>字段:</strong> ${info.columns.length > 0 ? info.columns.join(', ') : '无字段'}
+                    </div>
+                `;
+            }
+            
+            fileInfo.innerHTML = `
+                <h5><i class="bi ${fileTypeIcon}"></i> ${fileTypeText}</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>文件大小:</strong> ${info.file_size_mb} MB
+                    </div>
+                    <div class="col-md-3">
+                        <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>列数:</strong> ${info.num_columns}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Row Groups:</strong> ${info.row_groups}
+                    </div>
+                </div>
+                ${compressionHtml}
+                ${columnsHtml}
+            `;
+            fileInfo.style.display = 'block';
+        }
+
+        // 根据文件类型更新视图
+        function updateViewForFileType(fileType) {
+            // 获取Bootstrap标签页元素
+            const tableTab = document.getElementById('table-tab');
+            const jsonTab = document.getElementById('json-tab');
+            const statsTab = document.getElementById('stats-tab');
+            
+            // 获取标签页内容
+            const tableContent = document.getElementById('table');
+            const jsonContent = document.getElementById('json');
+            const statsContent = document.getElementById('stats');
+            
+            // 检查DOM元素是否存在
+            if (!tableTab || !jsonTab || !statsTab) {
+                console.warn('某些标签页元素不存在，跳过视图更新');
+                return;
+            }
+            
+            if (fileType === 'json') {
+                // JSON文件：只显示JSON视图
+                // 隐藏其他标签页
+                if (tableTab) tableTab.style.display = 'none';
+                if (statsTab) statsTab.style.display = 'none';
+                
+                // 显示JSON标签页
+                if (jsonTab) {
+                    jsonTab.style.display = 'block';
+                    // 激活JSON标签页
+                    jsonTab.classList.add('active');
+                    tableTab.classList.remove('active');
+                    statsTab.classList.remove('active');
+                    
+                    // 显示JSON内容
+                    if (jsonContent) {
+                        jsonContent.classList.add('show', 'active');
+                        tableContent.classList.remove('show', 'active');
+                        statsContent.classList.remove('show', 'active');
+                    }
+                }
+                
+            } else if (fileType === 'text') {
+                // 文本文件：只显示表格视图（类似head命令）
+                // 隐藏其他标签页
+                if (jsonTab) jsonTab.style.display = 'none';
+                if (statsTab) statsTab.style.display = 'none';
+                
+                // 显示表格标签页
+                if (tableTab) {
+                    tableTab.style.display = 'block';
+                    // 激活表格标签页
+                    tableTab.classList.add('active');
+                    jsonTab.classList.remove('active');
+                    statsTab.classList.remove('active');
+                    
+                    // 显示表格内容
+                    if (tableContent) {
+                        tableContent.classList.add('show', 'active');
+                        jsonContent.classList.remove('show', 'active');
+                        statsContent.classList.remove('show', 'active');
+                    }
+                }
+                
+            } else if (fileType === 'parquet') {
+                // Parquet文件：显示所有视图
+                if (tableTab) tableTab.style.display = 'block';
+                if (jsonTab) jsonTab.style.display = 'block';
+                if (statsTab) statsTab.style.display = 'block';
+                
+                // 默认显示表格视图
+                if (tableTab) {
+                    tableTab.classList.add('active');
+                    jsonTab.classList.remove('active');
+                    statsTab.classList.remove('active');
+                    
+                    // 显示表格内容
+                    if (tableContent) {
+                        tableContent.classList.add('show', 'active');
+                        jsonContent.classList.remove('show', 'active');
+                        statsContent.classList.remove('show', 'active');
+                    }
+                }
+            }
+        }
+
+        // 显示数据
+        function displayData(data) {
+            if (!data || data.length === 0) {
+                showError('没有数据可显示');
+                return;
+            }
+
+            // 显示数据容器
+            document.getElementById('dataContainer').style.display = 'block';
+
+            // 根据文件类型显示不同的数据格式
+            if (currentFileInfo && currentFileInfo.file_type === 'text') {
+                // 文本文件：显示为简单的行列表
+                updateTextView(data);
+            } else {
+                // 其他文件：显示表格和JSON视图
+                updateTableView(data);
+                updateJsonView(data);
+            }
+        }
+
+        // 更新文本视图（用于文本文件）
+        function updateTextView(data) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+
+            // 生成表头
+            let headerHtml = '<tr>';
+            headerHtml += '<th>行号</th>';
+            headerHtml += '<th>内容</th>';
+            headerHtml += '</tr>';
+            tableHeader.innerHTML = headerHtml;
+
+            // 生成表格内容
+            let bodyHtml = '';
+            data.forEach(row => {
+                bodyHtml += '<tr>';
+                bodyHtml += `<td>${row.line_number || ''}</td>`;
+                bodyHtml += `<td><pre class="mb-0">${escapeHtml(row.content || '')}</pre></td>`;
+                bodyHtml += '</tr>';
+            });
+            tableBody.innerHTML = bodyHtml;
+        }
+
+        // 更新表格视图
+        function updateTableView(data) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+
+            // 生成表头
+            if (data.length > 0) {
+                const columns = Object.keys(data[0]);
+                let headerHtml = '<tr>';
+                columns.forEach(col => {
+                    headerHtml += `<th>${col}</th>`;
+                });
+                headerHtml += '</tr>';
+                tableHeader.innerHTML = headerHtml;
+
+                // 生成表格内容
+                let bodyHtml = '';
+                data.forEach(row => {
+                    bodyHtml += '<tr>';
+                    columns.forEach(col => {
+                        const value = row[col];
+                        bodyHtml += `<td>${value !== null ? value : '<span class="text-muted">null</span>'}</td>`;
+                    });
+                    bodyHtml += '</tr>';
+                });
+                tableBody.innerHTML = bodyHtml;
+            }
+        }
+
+        // 更新 JSON 视图 - 树状展示
+        function updateJsonView(data) {
+            const jsonViewer = document.getElementById('jsonViewer');
+            jsonViewer.innerHTML = createJsonTree(data);
+        }
+
+        // 创建JSON树状结构
+        function createJsonTree(obj, level = 0) {
+            if (obj === null) {
+                return '<span class="json-null">null</span>';
+            }
+            
+            if (typeof obj === 'undefined') {
+                return '<span class="json-undefined">undefined</span>';
+            }
+            
+            if (typeof obj === 'string') {
+                return `<span class="json-string">"${escapeHtml(obj)}"</span>`;
+            }
+            
+            if (typeof obj === 'number') {
+                return `<span class="json-number">${obj}</span>`;
+            }
+            
+            if (typeof obj === 'boolean') {
+                return `<span class="json-boolean">${obj}</span>`;
+            }
+            
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) {
+                    return '<span class="json-bracket">[</span><span class="json-bracket">]</span>';
+                }
+                
+                let html = '<div class="json-item">';
+                html += '<span class="json-toggle" onclick="toggleJsonNode(this)">';
+                html += '<i class="bi bi-chevron-right json-icon"></i>';
+                html += '</span>';
+                html += '<span class="json-bracket">[</span>';
+                html += '<span class="json-count">' + obj.length + ' items</span>';
+                html += '<div class="json-children" style="display: none;">';
+                
+                obj.forEach((item, index) => {
+                    html += '<div class="json-child">';
+                    html += `<span class="json-index">${index}:</span>`;
+                    html += createJsonTree(item, level + 1);
+                    if (index < obj.length - 1) {
+                        html += '<span class="json-comma">,</span>';
+                    }
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                html += '<span class="json-bracket">]</span>';
+                html += '</div>';
+                
+                return html;
+            }
+            
+            if (typeof obj === 'object') {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) {
+                    return '<span class="json-bracket">{</span><span class="json-bracket">}</span>';
+                }
+                
+                let html = '<div class="json-item">';
+                html += '<span class="json-toggle" onclick="toggleJsonNode(this)">';
+                html += '<i class="bi bi-chevron-right json-icon"></i>';
+                html += '</span>';
+                html += '<span class="json-bracket">{</span>';
+                html += '<span class="json-count">' + keys.length + ' properties</span>';
+                html += '<div class="json-children" style="display: none;">';
+                
+                keys.forEach((key, index) => {
+                    html += '<div class="json-child">';
+                    html += `<span class="json-key">"${key}":</span>`;
+                    html += createJsonTree(obj[key], level + 1);
+                    if (index < keys.length - 1) {
+                        html += '<span class="json-comma">,</span>';
+                    }
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+                html += '<span class="json-bracket">}</span>';
+                html += '</div>';
+                
+                return html;
+            }
+            
+            return String(obj);
+        }
+
+        // 切换JSON节点展开/折叠
+        function toggleJsonNode(element) {
+            const children = element.parentElement.querySelector('.json-children');
+            const icon = element.querySelector('.json-icon');
+            
+            if (children.style.display === 'none') {
+                children.style.display = 'block';
+                icon.classList.remove('bi-chevron-right');
+                icon.classList.add('bi-chevron-down');
+            } else {
+                children.style.display = 'none';
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-right');
+            }
+        }
+
+        // HTML转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 全部展开JSON树
+        function expandAllJson() {
+            const toggles = document.querySelectorAll('.json-toggle');
+            toggles.forEach(toggle => {
+                const children = toggle.parentElement.querySelector('.json-children');
+                const icon = toggle.querySelector('.json-icon');
+                if (children && children.style.display === 'none') {
+                    children.style.display = 'block';
+                    icon.classList.remove('bi-chevron-right');
+                    icon.classList.add('bi-chevron-down');
+                }
+            });
+        }
+
+        // 全部折叠JSON树
+        function collapseAllJson() {
+            const toggles = document.querySelectorAll('.json-toggle');
+            toggles.forEach(toggle => {
+                const children = toggle.parentElement.querySelector('.json-children');
+                const icon = toggle.querySelector('.json-icon');
+                if (children && children.style.display === 'block') {
+                    children.style.display = 'none';
+                    icon.classList.remove('bi-chevron-down');
+                    icon.classList.add('bi-chevron-right');
+                }
+            });
+        }
+
+        // 复制JSON到剪贴板
+        function copyJsonToClipboard() {
+            if (currentData) {
+                const jsonString = JSON.stringify(currentData, null, 2);
+                navigator.clipboard.writeText(jsonString).then(() => {
+                    // 显示复制成功提示
+                    const button = event.target.closest('button');
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '<i class="bi bi-check"></i> 已复制';
+                    button.classList.remove('btn-outline-info');
+                    button.classList.add('btn-success');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.classList.remove('btn-success');
+                        button.classList.add('btn-outline-info');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动复制');
+                });
+            }
+        }
+
+        // 加载列统计
+        async function loadColumnStats() {
+            try {
+                const response = await fetch('/api/column_stats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ file_path: currentFile })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayColumnStats(result.data);
+                } else {
+                    console.error('列统计API返回错误:', result.error);
+                    showError('加载列统计失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('加载列统计失败:', error);
+                showError('加载列统计失败: ' + error.message);
+            }
+        }
+
+        // 显示列统计
+        function displayColumnStats(stats) {
+            const statsContainer = document.getElementById('columnStats');
+            
+            if (!stats || Object.keys(stats).length === 0) {
+                statsContainer.innerHTML = '<div class="alert alert-info">没有可用的列统计信息</div>';
+                return;
+            }
+            
+            let html = '<div class="row">';
+            
+            Object.entries(stats).forEach(([column, stat]) => {
+                // 计算空值百分比（基于总行数估算）
+                const estimatedTotalRows = 1000; // 估算值，实际应该从文件信息获取
+                const nullPercentage = stat.null_count > 0 ? 
+                    `(${((stat.null_count / estimatedTotalRows) * 100).toFixed(1)}%)` : '';
+                
+                // 格式化示例值
+                const sampleValues = stat.sample_values.map(val => {
+                    if (val === null || val === undefined) {
+                        return '<span class="text-muted">null</span>';
+                    }
+                    return String(val);
+                });
+                
+                // 格式化大小
+                const formatSize = (bytes) => {
+                    if (bytes < 1024) return bytes + ' B';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                };
+                
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-bar-chart"></i> ${column}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted">物理类型</small>
+                                        <div class="fw-bold">${stat.dtype}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">逻辑类型</small>
+                                        <div class="fw-bold text-info">${stat.logical_type || 'N/A'}</div>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">空值数量</small>
+                                        <div class="fw-bold text-danger">${stat.null_count} ${nullPercentage}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">压缩大小</small>
+                                        <div class="fw-bold text-success">${formatSize(stat.total_size)}</div>
+                                    </div>
+                                </div>
+                                ${stat.min_value !== null || stat.max_value !== null ? `
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">最小值</small>
+                                        <div class="fw-bold text-warning">${stat.min_value !== null ? stat.min_value : 'N/A'}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">最大值</small>
+                                        <div class="fw-bold text-warning">${stat.max_value !== null ? stat.max_value : 'N/A'}</div>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                <div class="mt-3">
+                                    <small class="text-muted">示例值</small>
+                                    <div class="small">
+                                        ${sampleValues.length > 0 ? 
+                                            sampleValues.map(val => `<code class="me-2">${val}</code>`).join('') :
+                                            '<span class="text-muted">无示例值</span>'
+                                        }
+                                    </div>
+                                </div>
+                                ${stat.compression ? `
+                                <div class="mt-2">
+                                    <small class="text-muted">压缩格式</small>
+                                    <div class="small text-muted">${stat.compression}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            statsContainer.innerHTML = html;
+        }
+
+        // 显示加载状态
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            errorAlert.textContent = message;
+            errorAlert.style.display = 'block';
+        }
+
+        // 隐藏错误信息
+        function hideError() {
+            document.getElementById('errorAlert').style.display = 'none';
+        }
+
+        // 监听行数变化
+        document.getElementById('numRows').addEventListener('change', function() {
+            if (currentFile) {
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html> 
