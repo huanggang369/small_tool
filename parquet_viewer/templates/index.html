@@ -549,6 +549,14 @@
 
         // 导航到指定路径
         function navigateToPath(path) {
+            // 更新文件路径输入框
+            if (path === '/') {
+                document.getElementById('filePath').value = '';
+            } else {
+                document.getElementById('filePath').value = path;
+            }
+            
+            // 刷新文件列表
             if (path === '/') {
                 refreshFileList();
             } else {
@@ -558,11 +566,16 @@
 
         // 返回主目录
         function goToHomeDirectory() {
+            // 清空文件路径输入框
+            document.getElementById('filePath').value = '';
             refreshFileList();
         }
 
         // 打开目录
         function openDirectory(directoryPath) {
+            // 更新文件路径输入框为当前目录路径
+            document.getElementById('filePath').value = directoryPath;
+            // 刷新文件列表
             refreshFileList(directoryPath);
         }
 
@@ -571,8 +584,12 @@
             if (currentDirectory) {
                 const parentDir = currentDirectory.split('/').slice(0, -1).join('/');
                 if (parentDir) {
+                    // 更新文件路径输入框为上级目录
+                    document.getElementById('filePath').value = parentDir;
                     refreshFileList(parentDir);
                 } else {
+                    // 清空文件路径输入框
+                    document.getElementById('filePath').value = '';
                     refreshFileList();
                 }
             }
@@ -852,7 +869,7 @@
                     </div>
                     ` : ''}
                 `;
-            } else if (info.file_type === 'json') {
+            } else if (info.file_type === 'json' && info.columns) {
                 columnsHtml = `
                     <div class="mt-2">
                         <strong>字段:</strong> ${info.columns.length > 0 ? info.columns.join(', ') : '无字段'}
@@ -860,25 +877,45 @@
                 `;
             }
             
-            fileInfo.innerHTML = `
-                <h5><i class="bi ${fileTypeIcon}"></i> ${fileTypeText}</h5>
-                <div class="row">
-                    <div class="col-md-3">
-                        <strong>文件大小:</strong> ${info.file_size_mb} MB
+            // 根据文件类型构建不同的信息显示
+            let infoHtml = `<h5><i class="bi ${fileTypeIcon}"></i> ${fileTypeText}</h5>`;
+            
+            if (info.file_type === 'parquet') {
+                // Parquet文件：显示完整的统计信息
+                infoHtml += `
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>文件大小:</strong> ${info.file_size_mb} MB
+                        </div>
+                        <div class="col-md-3">
+                            <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>列数:</strong> ${info.num_columns}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Row Groups:</strong> ${info.row_groups}
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                    ${compressionHtml}
+                    ${columnsHtml}
+                `;
+            } else {
+                // 其他文件类型：只显示基本信息
+                infoHtml += `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>文件大小:</strong> ${info.file_size_mb} MB
+                        </div>
+                        <div class="col-md-6">
+                            <strong>总行数:</strong> ${info.total_rows.toLocaleString()}
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <strong>列数:</strong> ${info.num_columns}
-                    </div>
-                    <div class="col-md-3">
-                        <strong>Row Groups:</strong> ${info.row_groups}
-                    </div>
-                </div>
-                ${compressionHtml}
-                ${columnsHtml}
-            `;
+                    ${columnsHtml}
+                `;
+            }
+            
+            fileInfo.innerHTML = infoHtml;
             fileInfo.style.display = 'block';
         }
 
@@ -901,7 +938,7 @@
             }
             
             if (fileType === 'json') {
-                // JSON文件：只显示JSON视图
+                // JSON文件：只显示JSON视图，不显示统计信息
                 // 隐藏其他标签页
                 if (tableTab) tableTab.style.display = 'none';
                 if (statsTab) statsTab.style.display = 'none';
@@ -923,7 +960,7 @@
                 }
                 
             } else if (fileType === 'text') {
-                // 文本文件：只显示表格视图（类似head命令）
+                // 文本文件：只显示表格视图（类似head命令），不显示统计信息
                 // 隐藏其他标签页
                 if (jsonTab) jsonTab.style.display = 'none';
                 if (statsTab) statsTab.style.display = 'none';
@@ -945,7 +982,7 @@
                 }
                 
             } else if (fileType === 'parquet') {
-                // Parquet文件：显示所有视图
+                // Parquet文件：显示所有视图（包括统计信息）
                 if (tableTab) tableTab.style.display = 'block';
                 if (jsonTab) jsonTab.style.display = 'block';
                 if (statsTab) statsTab.style.display = 'block';

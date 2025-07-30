@@ -93,10 +93,8 @@ class FileReader:
                 "file_type": "json",
                 "file_size_mb": round(os.path.getsize(self.file_path) / (1024 * 1024), 2),
                 "total_rows": total_rows,
-                "num_columns": len(columns),
-                "columns": columns,
-                "row_groups": 1,
-                "compression": {"overall_compression": "UNCOMPRESSED", "has_compression": False}
+                "columns": columns
+                # 不计算num_columns、row_groups、compression等parquet特有的统计信息
             }
         except Exception as e:
             raise Exception(f"解析JSON文件失败: {str(e)}")
@@ -110,11 +108,8 @@ class FileReader:
             return {
                 "file_type": "text",
                 "file_size_mb": round(os.path.getsize(self.file_path) / (1024 * 1024), 2),
-                "total_rows": len(lines),
-                "num_columns": 1,
-                "columns": ["content"],
-                "row_groups": 1,
-                "compression": {"overall_compression": "UNCOMPRESSED", "has_compression": False}
+                "total_rows": len(lines)
+                # 不计算num_columns、row_groups、compression等parquet特有的统计信息
             }
         except Exception as e:
             raise Exception(f"读取文本文件失败: {str(e)}")

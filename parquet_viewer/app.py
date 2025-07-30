@@ -181,6 +181,10 @@ def list_files():
         
         try:
             for item in os.listdir(directory):
+                # 过滤掉以.开头的隐藏文件和文件夹
+                if item.startswith('.'):
+                    continue
+                    
                 item_path = os.path.join(directory, item)
                 
                 if os.path.isdir(item_path):
