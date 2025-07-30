@@ -182,7 +182,8 @@ class FileReader:
                 for i, line in enumerate(f):
                     if i >= num_rows:  # 只读取前num_rows行
                         break
-                    lines.append(line.strip())
+                    # 保留换行符，只去除行首行尾的空白字符
+                    lines.append(line.rstrip('\r\n'))
             
             # 解析JSON数据
             json_data = self._parse_json_lines(lines)
@@ -210,7 +211,7 @@ class FileReader:
                         break
                     result.append({
                         "line_number": i + 1,
-                        "content": line.rstrip('\n')
+                        "content": line
                     })
         except Exception as e:
             raise Exception(f"读取文本文件失败: {str(e)}")
@@ -233,8 +234,8 @@ class FileReader:
             lines = content.split('\n')
             result = []
             for line in lines:
-                line = line.strip()
-                if line:
+                # 保留原始JSON字符串，包括字段值中的换行符
+                if line.strip():  # 只检查是否为空行
                     result.append(json.loads(line))
             return result
         except json.JSONDecodeError:
@@ -249,8 +250,8 @@ class FileReader:
         try:
             result = []
             for line in lines:
-                line = line.strip()
-                if line:
+                # 保留原始JSON字符串，包括字段值中的换行符
+                if line.strip():  # 只检查是否为空行
                     result.append(json.loads(line))
             return result
         except json.JSONDecodeError:
