@@ -138,6 +138,30 @@
             font-style: italic;
             margin-left: 4px;
         }
+
+        /* JSON复制按钮样式 */
+        .json-copy-btn {
+            margin-left: 4px;
+            padding: 1px 3px;
+            font-size: 8px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            min-width: 16px;
+            height: 16px;
+            line-height: 1;
+        }
+
+        .json-copy-btn:hover {
+            opacity: 1;
+        }
+
+        .json-item:hover .json-copy-btn {
+            opacity: 1;
+        }
+
+        .json-child:hover .json-copy-btn {
+            opacity: 1;
+        }
         .file-info {
             background-color: #f8f9fa;
             border-left: 3px solid #2196f3;
@@ -438,6 +462,7 @@
         let currentFileInfo = null;
         let currentDirectory = null;
         let statsLoaded = false; // 跟踪列统计是否已加载
+        let jsonDataMap = new Map(); // 存储JSON数据的路径映射
 
         // 页面加载时获取文件列表
         document.addEventListener('DOMContentLoaded', function() {
@@ -1102,15 +1127,16 @@
             const tableHeader = document.getElementById('tableHeader');
             const tableBody = document.getElementById('tableBody');
 
-            // 生成表头
-            if (data.length > 0) {
-                const columns = Object.keys(data[0]);
-                let headerHtml = '<tr>';
-                columns.forEach(col => {
-                    headerHtml += `<th>${col}</th>`;
-                });
-                headerHtml += '</tr>';
-                tableHeader.innerHTML = headerHtml;
+                            // 生成表头
+                if (data.length > 0) {
+                    const columns = Object.keys(data[0]);
+                    let headerHtml = '<tr>';
+                    columns.forEach(col => {
+                        // 转义列名，防止XSS攻击
+                        headerHtml += `<th>${escapeHtml(col)}</th>`;
+                    });
+                    headerHtml += '</tr>';
+                    tableHeader.innerHTML = headerHtml;
 
                 // 生成表格内容
                 let bodyHtml = '';
@@ -1118,7 +1144,12 @@
                     bodyHtml += '<tr>';
                     columns.forEach(col => {
                         const value = row[col];
-                        bodyHtml += `<td>${value !== null ? value : '<span class="text-muted">null</span>'}</td>`;
+                        if (value !== null) {
+                            // 转义HTML内容，防止XSS攻击
+                            bodyHtml += `<td>${escapeHtml(String(value))}</td>`;
+                        } else {
+                            bodyHtml += '<td><span class="text-muted">null</span></td>';
+                        }
                     });
                     bodyHtml += '</tr>';
                 });
@@ -1129,34 +1160,78 @@
         // 更新 JSON 视图 - 树状展示
         function updateJsonView(data) {
             const jsonViewer = document.getElementById('jsonViewer');
-            jsonViewer.innerHTML = createJsonTree(data);
+            
+            // 清空并重新构建数据映射
+            jsonDataMap.clear();
+            buildDataMap(data, '');
+            
+            jsonViewer.innerHTML = createJsonTree(data, 0, '');
+            
+            // 默认展开所有节点
+            setTimeout(() => {
+                expandAllJson();
+            }, 100);
+        }
+
+        // 构建数据映射
+        function buildDataMap(obj, path) {
+            if (obj === null || obj === undefined) {
+                jsonDataMap.set(path, obj);
+                return;
+            }
+            
+            if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
+                jsonDataMap.set(path, obj);
+                return;
+            }
+            
+            if (Array.isArray(obj)) {
+                jsonDataMap.set(path, obj);
+                obj.forEach((item, index) => {
+                    buildDataMap(item, path + '[' + index + ']');
+                });
+                return;
+            }
+            
+            if (typeof obj === 'object') {
+                jsonDataMap.set(path, obj);
+                Object.keys(obj).forEach(key => {
+                    const newPath = path ? path + '.' + key : key;
+                    buildDataMap(obj[key], newPath);
+                });
+                return;
+            }
+            
+            jsonDataMap.set(path, obj);
         }
 
         // 创建JSON树状结构
-        function createJsonTree(obj, level = 0) {
+        function createJsonTree(obj, level = 0, path = '') {
             if (obj === null) {
-                return '<span class="json-null">null</span>';
+                return '<span class="json-null">null</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
             }
             
             if (typeof obj === 'undefined') {
-                return '<span class="json-undefined">undefined</span>';
+                return '<span class="json-undefined">undefined</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
             }
             
             if (typeof obj === 'string') {
-                return `<span class="json-string">"${escapeHtml(obj)}"</span>`;
+                // 保留换行符，将换行符转换为可见的 \n
+                const escapedString = obj.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+                return `<span class="json-string">"${escapeHtml(escapedString)}"</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="${path}" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>`;
             }
             
             if (typeof obj === 'number') {
-                return `<span class="json-number">${obj}</span>`;
+                return `<span class="json-number">${obj}</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="${path}" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>`;
             }
             
             if (typeof obj === 'boolean') {
-                return `<span class="json-boolean">${obj}</span>`;
+                return `<span class="json-boolean">${obj}</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="${path}" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>`;
             }
             
             if (Array.isArray(obj)) {
                 if (obj.length === 0) {
-                    return '<span class="json-bracket">[</span><span class="json-bracket">]</span>';
+                    return '<span class="json-bracket">[</span><span class="json-bracket">]</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
                 }
                 
                 let html = '<div class="json-item">';
@@ -1165,12 +1240,13 @@
                 html += '</span>';
                 html += '<span class="json-bracket">[</span>';
                 html += '<span class="json-count">' + obj.length + ' items</span>';
+                html += '<button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
                 html += '<div class="json-children" style="display: none;">';
                 
                 obj.forEach((item, index) => {
                     html += '<div class="json-child">';
                     html += `<span class="json-index">${index}:</span>`;
-                    html += createJsonTree(item, level + 1);
+                    html += createJsonTree(item, level + 1, path + '[' + index + ']');
                     if (index < obj.length - 1) {
                         html += '<span class="json-comma">,</span>';
                     }
@@ -1187,7 +1263,7 @@
             if (typeof obj === 'object') {
                 const keys = Object.keys(obj);
                 if (keys.length === 0) {
-                    return '<span class="json-bracket">{</span><span class="json-bracket">}</span>';
+                    return '<span class="json-bracket">{</span><span class="json-bracket">}</span><button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
                 }
                 
                 let html = '<div class="json-item">';
@@ -1196,12 +1272,13 @@
                 html += '</span>';
                 html += '<span class="json-bracket">{</span>';
                 html += '<span class="json-count">' + keys.length + ' properties</span>';
+                html += '<button class="btn btn-sm btn-outline-secondary json-copy-btn" data-path="' + path + '" onclick="copyJsonValueByPath(this)" title="复制值"><i class="bi bi-clipboard"></i></button>';
                 html += '<div class="json-children" style="display: none;">';
                 
                 keys.forEach((key, index) => {
                     html += '<div class="json-child">';
                     html += `<span class="json-key">"${key}":</span>`;
-                    html += createJsonTree(obj[key], level + 1);
+                    html += createJsonTree(obj[key], level + 1, path ? path + '.' + key : key);
                     if (index < keys.length - 1) {
                         html += '<span class="json-comma">,</span>';
                     }
@@ -1232,6 +1309,219 @@
                 icon.classList.remove('bi-chevron-down');
                 icon.classList.add('bi-chevron-right');
             }
+        }
+
+        // 通过路径复制JSON值到剪贴板
+        function copyJsonValueByPath(button) {
+            const path = button.getAttribute('data-path');
+            let textToCopy;
+            
+            console.log('Copying path:', path); // 调试信息
+            
+            try {
+                let value;
+                
+                // 处理特殊路径
+                if (!path || path === '' || path === '__ROOT__') {
+                    value = currentData;
+                } else if (jsonDataMap.has(path)) {
+                    // 从预存储的映射中获取值
+                    value = jsonDataMap.get(path);
+                } else {
+                    // 手动解析路径
+                    value = getValueByPath(currentData, path);
+                }
+
+                console.log('获取到的值:', value);
+
+                // 检查值是否存在
+                if (value === undefined) {
+                    showCopyError('未找到指定字段');
+                    return;
+                }
+
+                // 根据值类型决定复制内容
+                if (typeof value === 'string') {
+                    textToCopy = value;
+                } else if (value === null) {
+                    textToCopy = 'null';
+                } else if (Array.isArray(value)) {
+                    textToCopy = JSON.stringify(value, null, 2);
+                } else if (typeof value === 'object') {
+                    textToCopy = JSON.stringify(value, null, 2);
+                } else {
+                    textToCopy = String(value);
+                }
+
+                console.log('准备复制内容:', textToCopy.substring(0, 100));
+
+                // 尝试使用现代 Clipboard API
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        showCopySuccess();
+                    }).catch(err => {
+                        console.error('现代剪贴板API失败:', err);
+                        fallbackCopyJsonValue(textToCopy);
+                    });
+                } else {
+                    fallbackCopyJsonValue(textToCopy);
+                }
+            } catch (error) {
+                console.error('复制过程中发生错误:', error);
+                showCopyError('复制失败: ' + error.message);
+            }
+        }
+
+        // 简化的路径解析函数
+        function getValueByPath(data, pathStr) {
+            if (!pathStr || pathStr === '' || pathStr === '__ROOT__') {
+                return data;
+            }
+            
+            try {
+                let current = data;
+                const parts = pathStr.split(/[\.\[\]]+/).filter(part => part !== '');
+                
+                for (const part of parts) {
+                    if (/^\d+$/.test(part)) {
+                        // 数组索引
+                        current = current[parseInt(part)];
+                    } else {
+                        // 对象属性
+                        current = current[part];
+                    }
+                    
+                    if (current === undefined) {
+                        return undefined;
+                    }
+                }
+                
+                return current;
+            } catch (error) {
+                console.error('路径解析错误:', error);
+                return undefined;
+            }
+        }
+
+        // 从data属性复制JSON值到剪贴板（保留原函数以兼容）
+        function copyJsonValueFromData(button) {
+            const value = button.getAttribute('data-value');
+            let textToCopy;
+            
+            console.log('Copying value:', value); // 调试信息
+            
+            if (value === 'null') {
+                textToCopy = 'null';
+            } else if (value === 'undefined') {
+                textToCopy = 'undefined';
+            } else if (value === '[]') {
+                textToCopy = '[]';
+            } else if (value === '{}') {
+                textToCopy = '{}';
+            } else {
+                // 检查是否是URL编码的复杂值（数组或对象）
+                try {
+                    // 尝试解码URL编码
+                    const decoded = decodeURIComponent(value);
+                    // 验证是否是有效的JSON
+                    JSON.parse(decoded);
+                    textToCopy = decoded;
+                    console.log('Decoded URL value:', textToCopy); // 调试信息
+                } catch (e) {
+                    // 如果不是URL编码，直接使用原值（字符串、数字、布尔值）
+                    textToCopy = value;
+                    console.log('Using direct value:', textToCopy); // 调试信息
+                }
+            }
+            
+            // 尝试使用现代 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showCopySuccess();
+                }).catch(err => {
+                    console.error('现代剪贴板API失败:', err);
+                    fallbackCopyJsonValue(textToCopy);
+                });
+            } else {
+                fallbackCopyJsonValue(textToCopy);
+            }
+        }
+
+        // 复制JSON值到剪贴板（保留原函数以兼容）
+        function copyJsonValue(value) {
+            let textToCopy;
+            
+            if (value === null) {
+                textToCopy = 'null';
+            } else if (value === undefined) {
+                textToCopy = 'undefined';
+            } else if (typeof value === 'string') {
+                textToCopy = value;
+            } else {
+                textToCopy = JSON.stringify(value);
+            }
+            
+            // 尝试使用现代 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showCopySuccess();
+                }).catch(err => {
+                    console.error('现代剪贴板API失败:', err);
+                    fallbackCopyJsonValue(textToCopy);
+                });
+            } else {
+                fallbackCopyJsonValue(textToCopy);
+            }
+        }
+
+        // 传统复制方法
+        function fallbackCopyJsonValue(text) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    showCopyError();
+                }
+            } catch (err) {
+                console.error('传统剪贴板方法失败:', err);
+                showCopyError();
+            }
+        }
+
+        // 显示复制成功提示
+        function showCopySuccess() {
+            // 创建临时提示
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success';
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.style.minWidth = '200px';
+            toast.innerHTML = '<i class="bi bi-check-circle"></i> 已复制到剪贴板';
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 2000);
+        }
+
+        // 显示复制失败提示
+        function showCopyError() {
+            alert('复制失败，请手动复制');
         }
 
         // HTML转义函数

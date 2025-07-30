@@ -278,6 +278,15 @@ class FileReader:
                 return str(value)
             elif hasattr(value, 'item'):  # numpy类型
                 return value.item()
+            elif isinstance(value, (list, tuple)):
+                # 处理列表和元组
+                return [convert_value(item) for item in value]
+            elif isinstance(value, dict):
+                # 处理字典
+                return {str(k): convert_value(v) for k, v in value.items()}
+            elif hasattr(value, '__dict__'):
+                # 处理对象
+                return str(value)
             else:
                 return str(value)
         
@@ -285,7 +294,12 @@ class FileReader:
         for row in data:
             converted_row = {}
             for key, value in row.items():
-                converted_row[str(key)] = convert_value(value)
+                try:
+                    converted_row[str(key)] = convert_value(value)
+                except Exception as e:
+                    # 如果转换失败，记录错误并使用字符串表示
+                    print(f"Warning: Failed to convert value {value} of type {type(value)}: {e}")
+                    converted_row[str(key)] = str(value)
             result.append(converted_row)
         
         return result
