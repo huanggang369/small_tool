@@ -412,9 +412,9 @@
                                         <button class="btn btn-outline-secondary btn-sm me-2" onclick="collapseAllJson()">
                                             <i class="bi bi-chevron-right"></i> 全部折叠
                                         </button>
-                                        <button class="btn btn-outline-info btn-sm" onclick="copyJsonToClipboard()">
-                                            <i class="bi bi-clipboard"></i> 复制JSON
-                                        </button>
+                                                                <button class="btn btn-outline-info btn-sm" onclick="copyJsonToClipboard(event)">
+                            <i class="bi bi-clipboard"></i> 复制JSON
+                        </button>
                                     </div>
                                     <div class="json-viewer" id="jsonViewer"></div>
                                 </div>
@@ -437,10 +437,37 @@
         let currentData = null;
         let currentFileInfo = null;
         let currentDirectory = null;
+        let statsLoaded = false; // 跟踪列统计是否已加载
 
         // 页面加载时获取文件列表
         document.addEventListener('DOMContentLoaded', function() {
-            refreshFileList();
+            // 检查URL参数中的路径
+            const urlParams = new URLSearchParams(window.location.search);
+            const pathParam = urlParams.get('path');
+            
+            if (pathParam) {
+                // 如果URL中有路径参数，则导航到该路径
+                const decodedPath = decodeURIComponent(pathParam);
+                // 更新文件路径输入框
+                document.getElementById('filePath').value = decodedPath;
+                refreshFileList(decodedPath);
+            } else {
+                // 否则加载默认目录
+                refreshFileList();
+            }
+            
+            // 添加列统计标签页的懒加载事件监听器
+            const statsTab = document.getElementById('stats-tab');
+            if (statsTab) {
+                statsTab.addEventListener('click', function() {
+                    // 如果是支持列统计的文件类型且还没有加载过列统计，则进行懒加载
+                    if (currentFileInfo && 
+                        (currentFileInfo.file_type === 'parquet' || currentFileInfo.file_type === 'json') && 
+                        !statsLoaded) {
+                        loadColumnStats();
+                    }
+                });
+            }
         });
 
         // 刷新文件列表
@@ -565,6 +592,9 @@
                 document.getElementById('filePath').value = path;
             }
             
+            // 更新URL参数
+            updateUrlPath(path === '/' ? '' : path);
+            
             // 刷新文件列表
             if (path === '/') {
                 refreshFileList();
@@ -577,13 +607,28 @@
         function goToHomeDirectory() {
             // 清空文件路径输入框
             document.getElementById('filePath').value = '';
+            // 更新URL参数
+            updateUrlPath('');
             refreshFileList();
+        }
+
+        // 更新URL路径参数
+        function updateUrlPath(path) {
+            const url = new URL(window.location);
+            if (path && path !== '/') {
+                url.searchParams.set('path', path);
+            } else {
+                url.searchParams.delete('path');
+            }
+            window.history.pushState({}, '', url);
         }
 
         // 打开目录
         function openDirectory(directoryPath) {
             // 更新文件路径输入框为当前目录路径
             document.getElementById('filePath').value = directoryPath;
+            // 更新URL参数
+            updateUrlPath(directoryPath);
             // 刷新文件列表
             refreshFileList(directoryPath);
         }
@@ -595,10 +640,12 @@
                 if (parentDir) {
                     // 更新文件路径输入框为上级目录
                     document.getElementById('filePath').value = parentDir;
+                    updateUrlPath(parentDir);
                     refreshFileList(parentDir);
                 } else {
                     // 清空文件路径输入框
                     document.getElementById('filePath').value = '';
+                    updateUrlPath('');
                     refreshFileList();
                 }
             }
@@ -663,13 +710,16 @@
                 if (filePath.includes('.')) {
                     // 如果是文件路径，导航到文件所在目录
                     const directory = filePath.substring(0, filePath.lastIndexOf('/'));
+                    updateUrlPath(directory);
                     refreshFileList(directory);
                 } else {
                     // 如果是目录路径，直接浏览该目录
+                    updateUrlPath(filePath);
                     refreshFileList(filePath);
                 }
             } else {
                 // 如果没有输入路径，刷新当前目录
+                updateUrlPath('');
                 refreshFileList();
             }
         }
@@ -799,12 +849,10 @@
                 }
 
                 currentData = result.data;
+                statsLoaded = false; // 重置列统计加载状态
                 displayData(result.data);
                 
-                // 根据文件类型决定是否加载列统计
-                if (currentFileInfo && currentFileInfo.file_type === 'parquet') {
-                    await loadColumnStats();
-                }
+                // 所有文件类型的列统计都采用懒加载，只在用户点击时加载
 
             } catch (error) {
                 showError('读取数据失败: ' + error.message);
@@ -939,15 +987,16 @@
             }
             
             if (fileType === 'json') {
-                // JSON文件：只显示JSON视图，不显示统计信息
-                // 隐藏其他标签页
+                // JSON文件：显示JSON视图和列统计（懒加载）
+                // 隐藏表格标签页
                 if (tableTab) tableTab.style.display = 'none';
-                if (statsTab) statsTab.style.display = 'none';
                 
-                // 显示JSON标签页
+                // 显示JSON和统计标签页
+                if (jsonTab) jsonTab.style.display = 'block';
+                if (statsTab) statsTab.style.display = 'block';
+                
+                // 激活JSON标签页
                 if (jsonTab) {
-                    jsonTab.style.display = 'block';
-                    // 激活JSON标签页
                     jsonTab.classList.add('active');
                     tableTab.classList.remove('active');
                     statsTab.classList.remove('active');
@@ -1221,7 +1270,7 @@
         }
 
         // 复制JSON到剪贴板
-        function copyJsonToClipboard() {
+        function copyJsonToClipboard(event) {
             if (currentData) {
                 const jsonString = JSON.stringify(currentData, null, 2);
                 navigator.clipboard.writeText(jsonString).then(() => {
@@ -1241,6 +1290,8 @@
                     console.error('复制失败:', err);
                     alert('复制失败，请手动复制');
                 });
+            } else {
+                alert('没有可复制的数据');
             }
         }
 
@@ -1259,6 +1310,7 @@
                 
                 if (result.success) {
                     displayColumnStats(result.data);
+                    statsLoaded = true; // 标记列统计已加载
                 } else {
                     console.error('列统计API返回错误:', result.error);
                     showError('加载列统计失败: ' + result.error);

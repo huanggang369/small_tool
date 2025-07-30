@@ -201,16 +201,19 @@ class FileReader:
             raise Exception(f"读取JSON文件失败: {str(e)}")
     
     def _read_text_top_rows(self, num_rows: int) -> List[Dict[str, Any]]:
-        """读取文本文件前N行"""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
+        """读取文本文件前N行 - 优化版本，只读取需要的行数"""
         result = []
-        for i, line in enumerate(lines[:num_rows]):
-            result.append({
-                "line_number": i + 1,
-                "content": line.rstrip('\n')
-            })
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                for i, line in enumerate(f):
+                    if i >= num_rows:  # 只读取前num_rows行
+                        break
+                    result.append({
+                        "line_number": i + 1,
+                        "content": line.rstrip('\n')
+                    })
+        except Exception as e:
+            raise Exception(f"读取文本文件失败: {str(e)}")
         
         return result
     
